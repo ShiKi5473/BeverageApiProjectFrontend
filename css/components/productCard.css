@@ -1,0 +1,48 @@
+/* --- 商品卡片 (ProductCard.js) 的圖片樣式 --- */
+
+/* 圖片的樣式 */
+.product-image {
+  width: 100%; /* 圖片寬度填滿卡片 */
+  height: 120px; /* 固定高度 */
+  object-fit: cover; /* 圖片會被裁剪以填滿空間，不會變形 */
+  border-radius: 4px 4px 0 0; /* 配合卡片的圓角 */
+}
+
+/* 占位符的樣式 (給 POS 頁面使用) */
+.product-image-placeholder {
+  width: 100%;
+  height: 120px;
+  background-color: #f0f0f0; /* 淺灰色背景 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 0.8em;
+  border-radius: 4px 4px 0 0;
+}
+/* (可選) 在占位符中間顯示飲料圖示或文字 */
+.product-image-placeholder::before {
+  content: "無圖片";
+  /* 或者您可以使用 FontAwesome 之類的圖示 */
+}
+
+/* 調整商品卡片，移除 padding-top，讓圖片貼齊頂部 */
+.product-card {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  /* 【修改】移除 padding: 15px; */
+  /* padding: 15px; */
+  background-color: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: box-shadow 0.2s;
+  overflow: hidden; /* 確保圖片圓角生效 */
+}
+.product-name {
+  font-weight: bold;
+  margin: 10px; /* 改用 margin 增加內部間距 */
+}
+.product-price {
+  color: #555;
+  margin: 0 10px 10px 10px; /* 改用 margin 增加內部間距 */
+}

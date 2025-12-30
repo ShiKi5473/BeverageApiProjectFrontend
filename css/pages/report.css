@@ -1,0 +1,87 @@
+/* frontend/css/pages/report.css */
+
+/* 佈局容器 */
+.report-layout {
+    display: grid;
+    grid-template-rows: 60px 1fr; /* Navbar 高度 60px */
+    height: 100vh;
+    background-color: #f4f4f4;
+}
+
+.report-container {
+    padding: 20px;
+    overflow-y: auto;
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 篩選工具列 */
+.filter-bar {
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* 關鍵指標卡片區 (Key Metrics) */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.metric-card {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.metric-title {
+    color: #666;
+    font-size: 0.9em;
+    margin-bottom: 10px;
+}
+
+.metric-value {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #333;
+}
+
+/* 圖表區 */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* 手機版單欄 */
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .charts-grid {
+        grid-template-columns: 2fr 1fr; /* 營收圖佔較大比例 */
+    }
+}
+
+.chart-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-height: 400px; /* 給圖表一個基礎高度 */
+}
+
+.chart-header {
+    margin-bottom: 15px;
+    font-weight: bold;
+    color: #333;
+}

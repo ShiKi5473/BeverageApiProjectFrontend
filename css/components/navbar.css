@@ -1,0 +1,26 @@
+/* --- 共用 Navbar --- */
+.pos-navbar {
+    grid-row: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    background-color: #333;
+    color: white;
+    z-index: 10;
+}
+.pos-navbar h1 {
+    margin: 0;
+    font-size: 1.5em;
+}
+.pos-navbar #logout-button {
+    padding: 5px 10px;
+    cursor: pointer;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
+.pos-navbar #logout-button:hover {
+    background-color: #c82333;
+}

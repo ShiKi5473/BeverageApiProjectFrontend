@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <title>KDS 廚房顯示系統</title>
+
+    <link rel="stylesheet" href="../css/pages/kds.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+
+
+</head>
+<body>
+<header class="kds-header">
+    <h1>KDS 廚房顯示</h1>
+    <md-chip id="connection-status" slot="action" label="尚未連線" class="status-disconnected"></md-chip>
+</header>
+<div class="kds-main-layout">
+    <div class="kds-column" id="preparing-column">
+        <h2 class="column-title">製作中 (PREPARING)</h2>
+        <div class="kds-card-list" id="preparing-list">
+        </div>
+    </div>
+
+    <div class="kds-column" id="pickup-column">
+        <h2 class="column-title">待取餐 (READY_FOR_PICKUP)</h2>
+        <div class="kds-card-list" id="pickup-list">
+        </div>
+    </div>
+</div>
+
+<script src="../js/kds.js" type="module"></script>
+</body>
+</html>

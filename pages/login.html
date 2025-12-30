@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>POS 系統登入</title>
+
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/pages/login.css" />
+
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+</head>
+<body>
+<div class="login-container">
+    <h2>員工登入</h2>
+    <form id="login-form">
+        <md-filled-text-field
+                label="品牌 ID"
+                id="brandId"
+                name="brandId"
+                value="1"
+                required
+                style="width: 100%; margin-bottom: 15px;"
+        ></md-filled-text-field>
+
+        <md-filled-text-field
+                label="帳號 (手機)"
+                id="username"
+                name="username"
+                required
+                style="width: 100%; margin-bottom: 15px;"
+        ></md-filled-text-field>
+
+        <md-filled-text-field
+                label="密碼"
+                id="password"
+                name="password"
+                type="password"
+                required
+                style="width: 100%; margin-bottom: 15px;"
+        ></md-filled-text-field>
+
+        <md-filled-button type="submit" style="width: 100%;">
+            登入
+        </md-filled-button>
+    </form>
+    <p id="error-message" class="error"></p>
+</div>
+<script src="../js/login.js" type="module"></script>
+</body>
+</html>

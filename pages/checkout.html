@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>訂單結帳</title>
+
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/components/navbar.css" />
+
+    <link rel="stylesheet" href="../css/pages/checkout.css" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+
+</head>
+<body>
+<div class="pos-layout" id="checkout-layout">
+    <div class="checkout-main-grid" id="checkout-main">
+
+        <aside class="checkout-column-left" id="checkout-order-details">
+            <h2>
+                訂單明細 (<span id="item-count">0</span>)
+
+                <md-outlined-button id="hold-and-return-button">
+                    返回修改
+                </md-outlined-button>
+            </h2>
+
+            <div class="checkout-column-left" id="order-items-list">
+                <p>載入中...</p>
+            </div>
+            <div class="order-total-summary">
+                <div class="total-row">
+                    <span>小計:</span>
+                    <span id="original-total">NT$ 0</span>
+                </div>
+                <div class="total-row discount" id="discount-row" style="display: none;">
+                    <span>點數折抵:</span>
+                    <span id="discount-amount">- NT$ 0</span>
+                </div>
+                <div class="total-row final">
+                    <span>應付總額:</span>
+                    <strong id="final-total">NT$ 0</strong>
+                </div>
+            </div>
+        </aside>
+
+        <main class="checkout-column-center" id="checkout-center-panel">
+            <section id="member-section">
+                <h2>會員</h2>
+                <div class="form-group">
+                    <md-filled-text-field id="member-phone" label="會員手機" style="width: 100%;"></md-filled-text-field>
+                    <md-filled-tonal-button id="find-member-btn" style="width: 100%; margin-top: 10px;">
+                        查詢
+                    </md-filled-tonal-button>
+                </div>
+                <div id="member-display" style="display: none;">
+                    <hr>
+                    <h3 id="member-name"></h3>
+                    <p>可用點數: <strong id="member-points-balance">0</strong> 點</p>
+                    <div class="form-group">
+                        <md-filled-text-field id="points-to-use" label="使用點數" type="number" value="0" min="0" style="width: 100%;"></md-filled-text-field>
+                        <span id="points-error" class="error"></span>
+                    </div>
+                </div>
+                <span id="member-info-text" class="member-info-text"></span>
+            </section>
+
+            <section id="invoice-section">
+                <h2>發票設定</h2>
+                <div class="form-group">
+                    <p style="color: #888;">(發票功能未來將在此處設定)</p>
+                    <md-filter-chip label="二聯式發票" disabled></md-filter-chip>
+                    <md-filter-chip label="三聯式發票" disabled></md-filter-chip>
+                </div>
+            </section>
+        </main>
+
+        <aside class="checkout-column-right" id="checkout-payment-panel">
+            <h2>付款</h2>
+            <div class="form-group">
+                <label>付款方式</label>
+                <md-chip-set id="payment-method-chips" single-select>
+                    <md-filter-chip label="現金" data-method="CASH"></md-filter-chip>
+                    <md-filter-chip label="信用卡" data-method="CREDIT_CARD"></md-filter-chip>
+                </md-chip-set>
+            </div>
+
+            <div id="cash-calculator" style="display: none;">
+                <div class="calculator-display">
+                    <div class="display-row">
+                        <label>實收</label>
+                        <span id="calc-display-received">$0</span>
+                    </div>
+                    <div class="display-row change">
+                        <label>找零</label>
+                        <span id="calc-display-change">$0</span>
+                    </div>
+                </div>
+
+                <div class="calculator-grid">
+                    <md-outlined-button class="calc-btn" data-val="1">1</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="2">2</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="3">3</md-outlined-button>
+                    <md-outlined-button class="calc-btn fast" data-fast="1000">$1000</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="4">4</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="5">5</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="6">6</md-outlined-button>
+                    <md-outlined-button class="calc-btn fast" data-fast="500">$500</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="7">7</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="8">8</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="9">9</md-outlined-button>
+                    <md-outlined-button class="calc-btn fast" data-fast="100">$100</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="00">00</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="0">0</md-outlined-button>
+                    <md-outlined-button class="calc-btn" data-val="clear">C</md-outlined-button>
+                    <md-outlined-button class="calc-btn exact" data-val="exact">剛好</md-outlined-button>
+                </div>
+            </div>
+
+            <md-filled-button id="confirm-payment-button" class="checkout-confirm-btn" disabled>
+                <span slot="label" id="confirm-btn-text">請選擇付款方式</span>
+                <strong id="confirm-btn-amount" style="margin-left: auto; font-size: 1.2em;">NT$ 0</strong>
+            </md-filled-button>
+            <md-text-button id="cancel-button" class="checkout-cancel-btn">
+                取消結帳
+            </md-text-button>
+        </aside>
+    </div>
+</div>
+
+<script src="../js/checkout.js" type="module"></script>
+</body>
+</html>

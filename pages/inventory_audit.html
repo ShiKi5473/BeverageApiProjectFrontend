@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>庫存管理系統 | Beverage POS</title>
+
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/components/navbar.css">
+    <link rel="stylesheet" href="../css/components/modal.css">
+    <link rel="stylesheet" href="../css/pages/inventory_audit.css">
+</head>
+<body>
+<div id="navbar-root"></div>
+
+<main class="audit-container">
+
+    <header class="audit-header">
+        <div class="batch-info">
+            <h2>📦 庫存管理與盤點</h2>
+            <p>
+                <span id="audit-date">--</span> |
+                操作人員: <span id="staff-name" class="loading-text">讀取中...</span>
+            </p>
+        </div>
+    </header>
+
+    <div class="inventory-toolbar">
+        <button id="btn-open-shipment" class="btn btn-primary">
+            <i class="icon-plus"></i> 新增進貨
+        </button>
+        <button id="btn-start-audit" class="btn btn-secondary">
+            <i class="icon-check"></i> 開始盤點模式
+        </button>
+    </div>
+
+    <div id="loading-indicator" class="loading-spinner" style="display: none;">
+        資料讀取中...
+    </div>
+
+    <div id="audit-list" class="audit-list">
+    </div>
+
+    <div id="empty-state" style="display: none; text-align: center; color: #888; margin-top: 2rem;">
+        沒有庫存項目。
+    </div>
+
+</main>
+
+<footer id="audit-footer" class="action-bar hidden" style="display: none;">
+    <div class="progress-info">
+        <span>已盤點: </span>
+        <strong id="progress-count">0 / 0</strong>
+    </div>
+
+    <div class="footer-actions">
+        <button id="btn-cancel-audit" class="btn btn-secondary">
+            退出盤點
+        </button>
+        <button id="btn-submit" class="btn btn-primary" disabled>
+            提交盤點報告
+        </button>
+    </div>
+</footer>
+
+<div id="shipment-modal" class="modal hidden">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3>🚚 新增進貨單</h3>
+        <form id="shipment-form">
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="shipment-supplier">供應商</label>
+                    <input type="text" id="shipment-supplier" class="form-control" placeholder="例如: 光泉">
+                </div>
+                <div class="form-group half">
+                    <label for="shipment-invoice">進貨單號</label>
+                    <input type="text" id="shipment-invoice" class="form-control" placeholder="例如: INV-001">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="shipment-item">進貨品項</label>
+                <select id="shipment-item" class="form-control" required>
+                    <option value="">讀取中...</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="shipment-quantity">數量</label>
+                    <input type="number" id="shipment-quantity" class="form-control" min="1" placeholder="例如: 10" required>
+                </div>
+                <div class="form-group half">
+                    <label for="shipment-cost">總成本 ($)</label>
+                    <input type="number" id="shipment-cost" class="form-control" min="0" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="shipment-expiry">有效期限 (選填)</label>
+                <input type="date" id="shipment-expiry" class="form-control">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary close-modal-btn">取消</button>
+                <button type="submit" class="btn btn-primary">確認進貨</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="module" src="../js/inventory_audit.js"></script>
+</body>
+</html>

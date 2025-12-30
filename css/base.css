@@ -1,0 +1,66 @@
+/* --- 基本設定 (所有頁面共用) --- */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+}
+
+/* --- 共用表單元素 --- */
+.form-group {
+    margin-bottom: 15px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+}
+button[type="submit"] {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+.error {
+    color: red;
+    font-size: 0.9em;
+}
+
+/* --- 共用選項按鈕 (付款方式/商品選項) --- */
+.option-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.option-btn {
+    padding: 10px 15px;
+    font-size: 0.9em;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.option-btn:hover {
+    background-color: #f0f0f0;
+}
+.option-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+    font-weight: bold;
+}
+
+/* --- 全域工具類別 --- */
+.hidden {
+    display: none !important;
+}

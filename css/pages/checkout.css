@@ -1,0 +1,243 @@
+/* --- Checkout 頁面 [checkout.html] --- */
+/* POS 頂層佈局 (共用) */
+.pos-layout {
+    display: grid;
+    grid-template-rows: 60px 1fr;
+    grid-template-columns: 1fr;
+    height: 100vh;
+}
+
+/* 結帳頁 三欄佈局 */
+.checkout-main-grid {
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 3fr 7fr 4fr;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+/* (A) 左欄：訂單明細 */
+.checkout-column-left {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+    height: 100%;
+    box-sizing: border-box;
+
+}
+.checkout-column-left h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.checkout-column-left h2 md-outlined-button {
+    /* margin-left: auto; (上面 h2 已用 justify-content) */
+
+    /* 縮小按鈕的 padding 和字體 */
+    --md-outlined-button-label-text-size: 0.8em;
+    --md-outlined-button-horizontal-padding: 12px;
+    height: 32px; /* 讓按鈕小一點 */
+}
+#order-items-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    background-color: #fff;
+    border-radius: 4px;
+    border: 1px solid #eee;
+    padding: 5px;
+}
+.checkout-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.checkout-item:last-child {
+    border-bottom: none;
+}
+.checkout-item-details {
+    display: flex;
+    flex-direction: column;
+}
+.checkout-item-name {
+    font-weight: bold;
+}
+.checkout-item-options {
+    font-size: 0.85em;
+    color: #666;
+    padding-left: 10px;
+}
+.checkout-item-subtotal {
+    font-weight: bold;
+    white-space: nowrap;
+    padding-left: 10px;
+}
+.order-total-summary {
+    flex-shrink: 0;
+    padding-top: 15px;
+    border-top: 2px solid #ddd;
+    margin-top: 10px;
+}
+.total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.1em;
+    padding: 4px 0;
+}
+.total-row.discount span:last-child {
+    color: #dc3545;
+    font-weight: bold;
+}
+.total-row.final {
+    font-size: 1.4em;
+    font-weight: bold;
+    padding-top: 10px;
+}
+
+/* (B) 中欄：會員/發票 */
+.checkout-column-center {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background-color: #fff;
+    overflow-y: auto;
+    gap: 20px;
+}
+.checkout-column-center h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+#member-section {
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 20px;
+}
+#invoice-section {
+    flex-grow: 1;
+}
+#member-name {
+    color: #007bff;
+}
+.member-info-text {
+    font-size: 0.9em;
+    color: #007bff;
+    display: block;
+    margin-top: 5px;
+}
+
+/* (C) 右欄：付款 */
+.checkout-column-right {
+    background-color: #f8f9fa;
+    padding: 20px;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+.checkout-column-right h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
+/* 現金計算機 */
+.calculator-display {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 15px 0;
+}
+.display-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.2em;
+}
+.display-row label {
+    color: #555;
+}
+.display-row span {
+    font-weight: bold;
+    font-size: 1.3em;
+}
+.display-row.change label {
+    font-size: 1.3em;
+}
+.display-row.change span {
+    color: #dc3545;
+    font-size: 2em;
+}
+.calculator-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+.calc-btn {
+    padding: 20px 10px;
+    font-size: 1.4em;
+    font-weight: bold;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.calc-btn:hover {
+    background-color: #e0e0e0;
+}
+.calc-btn.fast,
+.calc-btn.exact {
+    background-color: #e9ecef;
+}
+
+/* 結帳按鈕 (右欄底部) */
+.checkout-confirm-btn {
+    width: 100%;
+    background-color: #ffc107;
+    color: #333;
+    border: none;
+    border-radius: 4px;
+    padding: 15px;
+    font-size: 1.2em;
+    cursor: pointer;
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.checkout-confirm-btn:hover:not(:disabled) {
+    background-color: #e0a800;
+}
+.checkout-confirm-btn:disabled {
+    background-color: #ccc;
+    color: #888;
+    cursor: not-allowed;
+}
+.checkout-confirm-btn strong {
+    font-size: 1.3em;
+}
+.checkout-cancel-btn {
+    width: 100%;
+    background-color: transparent;
+    color: #6c757d;
+    border: 1px solid #6c757d;
+    padding: 10px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+.checkout-cancel-btn:hover {
+    background-color: #f0f0f0;
+}

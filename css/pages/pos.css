@@ -1,0 +1,216 @@
+/* --- POS 頁面 [pos.html] --- */
+/* POS 頂層佈局 */
+.pos-layout {
+    display: grid;
+    grid-template-rows: 60px 1fr;
+    grid-template-columns: 1fr;
+    height: 100vh;
+}
+
+/* POS 三欄內容區 */
+.pos-main-content {
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 2fr 8fr 3fr;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+/* (A) 左欄：分類 */
+.category-sidebar {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+}
+.category-sidebar h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
+#category-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex-grow: 1;      /* 關鍵：讓列表填滿空間 */
+}
+
+/* 【修改】將 .category-sidebar li a 改為 .category-sidebar md-list-item */
+.category-sidebar md-list-item {
+    display: block;
+    padding: 10px;         /* 關鍵：補上 padding 讓按鈕有高度 */
+    text-decoration: none;
+    --md-list-item-headline-color: #333;
+    color: #333;          /* 關鍵：補上 color 讓文字顯示 */
+    border-radius: 4px;
+    cursor: pointer;
+
+}
+
+/* 【修改】更新 hover 和 active 狀態 */
+.category-sidebar md-list-item:hover {
+    background-color: #e9ecef;
+}
+
+.category-sidebar md-list-item.active {
+    background-color: #e0eafc; /* 使用上次建議的藍色背景 */
+    --md-list-item-headline-color: #333;
+    font-weight: bold;
+}
+
+/* (B) 中欄：商品區 */
+.product-grid {
+    overflow-y: auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    background-color: #f4f4f4;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* (C) 右欄：購物車 */
+.cart-sidebar {
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+    height: 100%;
+    box-sizing: border-box;
+}
+#cart-items {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+.cart-total {
+    margin-top: auto;
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+    flex-shrink: 0;
+}
+#checkout-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+#hold-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #ffc107;
+    color: #333;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+.cart-empty {
+    color: #888;
+    text-align: center;
+    padding-top: 20px;
+}
+.cart-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.cart-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.cart-item-name {
+    font-weight: bold;
+    font-size: 1em;
+    color: #333;
+}
+.cart-item-remove-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    font-size: 1.5em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 5px;
+    line-height: 1;
+}
+.cart-item-remove-btn:hover {
+    color: #c82333;
+}
+.cart-item-price {
+    font-size: 1.1em;
+    color: #000;
+    font-weight: bold;
+    text-align: right;
+    margin-top: 5px;
+}
+.cart-item-options {
+    font-size: 0.9em;
+    color: #666;
+    padding-top: 4px;
+}
+.cart-item-notes {
+    font-size: 0.9em;
+    color: #8b4513; /* 棕色 */
+    padding-top: 4px;
+}
+
+
+.pickup-section {
+    border-top: 2px solid #007bff;
+    margin-top: 20px;
+    padding-top: 15px;
+    display: flex;
+    flex-direction: column;
+    /* 讓此區塊佔滿剩餘空間 (如果購物車高度不固定) */
+    flex-grow: 1;
+    min-height: 150px; /* 至少給定一個高度 */
+}
+.pickup-title {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+    color: #007bff;
+}
+#pickup-list {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+.pickup-empty {
+    color: #888;
+    text-align: center;
+    padding-top: 10px;
+}
+.pickup-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+.pickup-item-number {
+    font-weight: bold;
+    font-size: 1.2em;
+}
+.btn-complete-pickup {
+    padding: 5px 8px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.btn-complete-pickup:disabled {
+    background-color: #ccc;
+}

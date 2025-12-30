@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>營收報表中心</title>
+
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/components/navbar.css" />
+    <link rel="stylesheet" href="../css/pages/report.css" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+</head>
+<body>
+
+<div class="report-layout">
+    <header id="navbar-placeholder"></header>
+
+    <div class="report-container">
+
+        <section class="filter-bar">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>開始日期</label>
+                <input type="date" id="start-date">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>結束日期</label>
+                <input type="date" id="end-date">
+            </div>
+            <div class="form-group" style="margin-bottom: 0; display: none;" id="store-selector-group">
+                <label>分店</label>
+                <select id="store-select">
+                    <option value="">全部分店</option>
+                </select>
+            </div>
+            <md-filled-button id="search-btn">查詢報表</md-filled-button>
+        </section>
+
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">總營收</div>
+                <div class="metric-value" id="metric-revenue">NT$ 0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">總訂單數</div>
+                <div class="metric-value" id="metric-orders">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">平均客單價</div>
+                <div class="metric-value" id="metric-aov">NT$ 0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">取消單數</div>
+                <div class="metric-value" id="metric-cancelled" style="color: #dc3545;">0</div>
+            </div>
+        </section>
+
+        <section class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-header">每日營收趨勢</div>
+                <div id="revenue-chart" style="width: 100%; height: 350px;"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">熱銷商品排行 (Top 10)</div>
+                <div id="product-chart" style="width: 100%; height: 350px;"></div>
+            </div>
+        </section>
+
+    </div>
+</div>
+
+<script type="module" src="../js/report.js"></script>
+</body>
+</html>
