@@ -102,7 +102,7 @@ async function loadOptionGroups() {
             // 渲染選項標籤
             const optionsHtml = g.options.map(opt =>
                 `<span style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:0.8em; margin-right:4px;">
-                    ${opt.name} (+$${opt.priceAdjustment})
+                    ${opt.optionName} (+$${opt.priceAdjustment})
                  </span>`
             ).join('');
 
