@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>商品管理中心 | Beverage POS</title>
+
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/components/navbar.css" />
+    <link rel="stylesheet" href="../css/components/modal.css" />
+
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+        }
+        .card h3 { margin-top: 0; }
+        .chip-container { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+
+        /* 表單樣式 */
+        .form-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed #ccc; }
+        .variant-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+
+        md-tabs { margin-bottom: 20px; }
+    </style>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+    <script type="importmap">
+        {
+          "imports": {
+            "@material/web/": "https://esm.run/@material/web/"
+          }
+        }
+    </script>
+    <script type="module">
+        import '@material/web/all.js';
+        import '@material/web/labs/card/filled-card.js';
+    </script>
+</head>
+<body>
+
+<div id="navbar-root"></div>
+
+<main class="admin-container">
+
+    <md-tabs id="admin-tabs">
+        <md-primary-tab id="tab-products" aria-selected="true">商品列表</md-primary-tab>
+        <md-primary-tab id="tab-categories">分類管理</md-primary-tab>
+        <md-primary-tab id="tab-options">選項群組</md-primary-tab>
+    </md-tabs>
+
+    <section id="panel-products">
+        <div class="toolbar">
+            <h2>商品列表</h2>
+            <md-filled-button id="btn-add-product">
+                <md-icon slot="icon">add</md-icon> 新增商品
+            </md-filled-button>
+        </div>
+        <div id="product-list" class="data-grid">
+            <p>載入中...</p>
+        </div>
+    </section>
+
+    <section id="panel-categories" style="display: none;">
+        <div class="toolbar">
+            <h2>分類列表</h2>
+            <md-filled-button id="btn-add-category">
+                <md-icon slot="icon">add</md-icon> 新增分類
+            </md-filled-button>
+        </div>
+        <md-list id="category-list" style="background: white; border-radius: 8px; max-width: 600px;">
+        </md-list>
+    </section>
+
+    <section id="panel-options" style="display: none;">
+        <div class="toolbar">
+            <h2>選項群組 (糖/冰/加料)</h2>
+            <md-filled-button id="btn-add-option-group">
+                <md-icon slot="icon">add</md-icon> 新增群組
+            </md-filled-button>
+        </div>
+        <div id="option-group-list" class="data-grid">
+        </div>
+    </section>
+
+</main>
+
+<md-dialog id="dialog-product">
+    <div slot="headline">新增飲品</div>
+    <form slot="content" id="form-product" method="dialog">
+        <div class="form-section">
+            <md-filled-text-field label="商品名稱" id="input-prod-name" required style="width: 100%; margin-bottom: 10px;"></md-filled-text-field>
+            <md-filled-text-field label="描述" id="input-prod-desc" type="textarea" style="width: 100%; margin-bottom: 10px;"></md-filled-text-field>
+            <md-filled-text-field label="基本價格" id="input-prod-price" type="number" required prefix-text="$" style="width: 100%;"></md-filled-text-field>
+        </div>
+
+        <div class="form-section">
+            <h4>所屬分類 (多選)</h4>
+            <div id="check-list-categories" class="chip-container"></div>
+        </div>
+
+        <div class="form-section">
+            <h4>客製化選項 (多選)</h4>
+            <div id="check-list-options" class="chip-container"></div>
+        </div>
+
+        <div class="form-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h4>規格 (Variants)</h4>
+                <md-text-button type="button" id="btn-add-variant-row">增加規格</md-text-button>
+            </div>
+            <div id="variant-rows-container">
+                <div class="variant-row">
+                    <input type="text" placeholder="規格名 (如: 大杯)" class="var-name" required>
+                    <input type="number" placeholder="加價" class="var-price" value="0">
+                    <input type="text" placeholder="SKU Code" class="var-sku">
+                    <md-icon-button type="button" onclick="this.parentElement.remove()">
+                        <md-icon>delete</md-icon>
+                    </md-icon-button>
+                </div>
+            </div>
+        </div>
+    </form>
+    <div slot="actions">
+        <md-text-button id="btn-cancel-product" type="button">取消</md-text-button>
+        <md-filled-button id="btn-submit-product">建立商品</md-filled-button>
+    </div>
+</md-dialog>
+
+<md-dialog id="dialog-category">
+    <div slot="headline">新增分類</div>
+    <form slot="content" id="form-category" method="dialog">
+        <md-filled-text-field label="分類名稱" id="input-cat-name" required style="width: 100%;"></md-filled-text-field>
+    </form>
+    <div slot="actions">
+        <md-text-button id="btn-cancel-category" type="button">取消</md-text-button>
+        <md-filled-button id="btn-submit-category">建立</md-filled-button>
+    </div>
+</md-dialog>
+
+<md-dialog id="dialog-option-group">
+    <div slot="headline">新增選項群組</div>
+    <form slot="content" id="form-option-group" method="dialog">
+        <md-filled-text-field label="群組名稱 (如: 甜度)" id="input-og-name" required style="width: 100%; margin-bottom: 10px;"></md-filled-text-field>
+        <md-filled-select label="選擇類型" id="input-og-type" style="width: 100%;">
+            <md-select-option value="SINGLE">單選 (如: 甜度)</md-select-option>
+            <md-select-option value="MULTIPLE">多選 (如: 加料)</md-select-option>
+        </md-filled-select>
+    </form>
+    <div slot="actions">
+        <md-text-button id="btn-cancel-option-group" type="button">取消</md-text-button>
+        <md-filled-button id="btn-submit-option-group">建立</md-filled-button>
+    </div>
+</md-dialog>
+
+<md-dialog id="dialog-add-option">
+    <div slot="headline">新增細項</div>
+    <form slot="content" id="form-add-option" method="dialog">
+        <input type="hidden" id="input-target-group-id">
+        <md-filled-text-field label="選項名稱 (如: 微糖)" id="input-opt-name" required style="width: 100%; margin-bottom: 10px;"></md-filled-text-field>
+        <md-filled-text-field label="加價 (可為 0)" id="input-opt-price" type="number" value="0" style="width: 100%;"></md-filled-text-field>
+    </form>
+    <div slot="actions">
+        <md-text-button id="btn-cancel-option" type="button">取消</md-text-button>
+        <md-filled-button id="btn-submit-option">新增</md-filled-button>
+    </div>
+</md-dialog>
+
+<script type="module" src="../js/admin_product.js"></script>
+</body>
+</html>

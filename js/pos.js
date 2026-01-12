@@ -205,16 +205,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function handleAddToCart(product, selectedData) {
+        if (!selectedData) return; // 如果驗證失敗 (沒選規格)
+
         const allOptions = product.optionGroups.flatMap((group) => group.options);
         const selectedOptions = allOptions.filter((option) =>
             selectedData.selectedOptionIds.includes(String(option.optionId))
         );
         const optionPriceAdjustment = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
-        const unitPrice = product.basePrice + optionPriceAdjustment;
+
+        // 【修改】使用規格價格 (Variant Price) 作為基準，而不是 product.basePrice
+        const basePrice = selectedData.variantPrice || product.basePrice;
+        const unitPrice = basePrice + optionPriceAdjustment;
+
+        // 找出規格名稱 (用於顯示)
+        let variantName = "預設";
+        if (product.variants) {
+            const v = product.variants.find(v => v.id === selectedData.variantId);
+            if (v) variantName = v.name;
+        }
+
         const cartItem = {
             id: Date.now(),
             productId: product.id,
-            name: product.name,
+            name: `${product.name} (${variantName})`, // 顯示名稱加上規格
+            variantId: selectedData.variantId,        // 【關鍵新增】存入 variantId
             quantity: selectedData.quantity,
             unitPrice: unitPrice,
             selectedOptions: selectedOptions,

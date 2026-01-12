@@ -93,15 +93,6 @@ export async function getPosProducts() {
   return response.json();
 }
 
-export async function getCategories() {
-  const response = await fetchWithAuth("/api/v1/brands/categories", {
-    method: "GET",
-  });
-  if (!response.ok) {
-    throw new Error("取得分類失敗");
-  }
-  return response.json();
-}
 
 /**
  * 對一筆現有訂單進行結帳 (付款、綁定會員)
@@ -353,5 +344,94 @@ export async function submitShipment(data) {
         const errorText = await response.text();
         throw new Error(errorText || "進貨提交失敗");
     }
+    return response.json();
+}
+
+// ==========================================
+// 📦 後台管理 API (Admin)
+// ==========================================
+
+/**
+ * 建立新分類
+ * POST /api/v1/brands/categories
+ */
+export async function createCategory(data) {
+    const response = await fetchWithAuth("/api/v1/brands/categories", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("建立分類失敗");
+    return response.json();
+}
+
+/**
+ * 取得所有分類 (含 ID 與 Name)
+ * GET /api/v1/brands/categories
+ */
+export async function getCategories() {
+    const response = await fetchWithAuth("/api/v1/brands/categories", { method: "GET" });
+    if (!response.ok) throw new Error("取得分類失敗");
+    return response.json();
+}
+
+/**
+ * 建立選項群組 (e.g. 甜度)
+ * POST /api/v1/brands/option-groups
+ */
+export async function createOptionGroup(data) {
+    const response = await fetchWithAuth("/api/v1/brands/option-groups", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("建立選項群組失敗");
+    return response.json();
+}
+
+/**
+ * 取得選項群組列表
+ * GET /api/v1/brands/option-groups
+ */
+export async function getOptionGroups() {
+    const response = await fetchWithAuth("/api/v1/brands/option-groups", { method: "GET" });
+    if (!response.ok) throw new Error("取得選項群組失敗");
+    return response.json();
+}
+
+/**
+ * 在群組內新增選項 (e.g. 微糖)
+ * POST /api/v1/brands/option-groups/{groupId}/options
+ */
+export async function createProductOption(groupId, data) {
+    const response = await fetchWithAuth(`/api/v1/brands/option-groups/${groupId}/options`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("新增選項失敗");
+    return response.json();
+}
+
+/**
+ * 建立新商品 (含規格)
+ * POST /api/v1/brands/products
+ */
+export async function createProduct(data) {
+    const response = await fetchWithAuth("/api/v1/brands/products", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`建立商品失敗: ${err}`);
+    }
+    return response.json();
+}
+
+/**
+ * 取得商品列表 (摘要)
+ * GET /api/v1/brands/products/summary
+ */
+export async function getProductSummaries() {
+    const response = await fetchWithAuth("/api/v1/brands/products/summary", { method: "GET" });
+    if (!response.ok) throw new Error("取得商品列表失敗");
     return response.json();
 }

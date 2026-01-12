@@ -289,8 +289,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         confirmPaymentButton.disabled = true;
         confirmBtnTextEl.textContent = "付款處理中...";
 
+        // 這裡加入 variantId
         const itemsDto = currentCartItems.map(item => ({
             productId: item.productId,
+            variantId: item.variantId,
             quantity: item.quantity,
             notes: item.notes,
             optionIds: item.selectedOptions.map(opt => opt.optionId)
