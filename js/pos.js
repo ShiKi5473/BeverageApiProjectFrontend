@@ -68,16 +68,21 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("購物車是空的！");
             return;
         }
+
+        // 轉換為後端 OrderItemDto 格式
         const orderItemsDto = shoppingCart.map((item) => ({
             productId: item.productId,
+            variantId: item.variantId, // [重要] 必須傳送 variantId
             quantity: item.quantity,
             notes: item.notes,
             optionIds: item.selectedOptions.map((opt) => opt.optionId),
         }));
+
         const createOrderRequest = {
             items: orderItemsDto,
             status: 'HELD'
         };
+
         try {
             const newOrder = await createOrder(createOrderRequest);
             alert(`訂單 ${newOrder.orderNumber} 已暫存`);
@@ -192,9 +197,23 @@ document.addEventListener("DOMContentLoaded", () => {
         currentModal = createOptionsModalContent(product);
         dialogContentSlot.innerHTML = "";
         dialogContentSlot.appendChild(currentModal.element);
+
+        // 綁定加入購物車按鈕事件
         modalAddButton.onclick = () => {
-            handleAddToCart(product, currentModal.getSelectedData());
+            if (currentModal) {
+                // 1. 取得選擇的資料（若驗證失敗會回傳 null）
+                const selectedData = currentModal.getSelectedData();
+
+                // 2. 檢查是否驗證通過
+                if (!selectedData) {
+                    return; // 驗證失敗 (例如沒選規格)，直接中斷，不關閉視窗
+                }
+
+                // 3. 執行加入購物車 (修正變數名稱：currentProduct -> product)
+                handleAddToCart(product, selectedData);
+            }
         };
+
         modalCloseButton.onclick = closeModal;
         optionsDialog.show();
     }
@@ -205,35 +224,44 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function handleAddToCart(product, selectedData) {
-        if (!selectedData) return; // 如果驗證失敗 (沒選規格)
+        // 1. 找出對應的規格物件 (為了取得正確價格)
+        let selectedVariant = null;
+        let basePrice = product.basePrice; // 預設使用原價
 
-        const allOptions = product.optionGroups.flatMap((group) => group.options);
+        if (selectedData.variantId) {
+            // 注意: dataset 取出的 id 是字串，需轉型或寬鬆比對
+            if (product.variants) {
+                selectedVariant = product.variants.find(v => String(v.id) === String(selectedData.variantId));
+            }
+            if (selectedVariant) {
+                basePrice = selectedVariant.price; // 改用規格價格
+            }
+        }
+
+        // 2. 篩選出選中的配料/選項物件
+        const allOptions = product.optionGroups ? product.optionGroups.flatMap((group) => group.options) : [];
         const selectedOptions = allOptions.filter((option) =>
             selectedData.selectedOptionIds.includes(String(option.optionId))
         );
-        const optionPriceAdjustment = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
 
-        // 【修改】使用規格價格 (Variant Price) 作為基準，而不是 product.basePrice
-        const basePrice = selectedData.variantPrice || product.basePrice;
+        // 3. 計算單價: 規格價格 + 選項加價
+        const optionPriceAdjustment = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
         const unitPrice = basePrice + optionPriceAdjustment;
 
-        // 找出規格名稱 (用於顯示)
-        let variantName = "預設";
-        if (product.variants) {
-            const v = product.variants.find(v => v.id === selectedData.variantId);
-            if (v) variantName = v.name;
-        }
-
+        // 4. 建立購物車項目
         const cartItem = {
             id: Date.now(),
             productId: product.id,
-            name: `${product.name} (${variantName})`, // 顯示名稱加上規格
-            variantId: selectedData.variantId,        // 【關鍵新增】存入 variantId
+            name: product.name,
+            // [重要] 記錄規格資訊
+            variantId: selectedVariant ? selectedVariant.id : null,
+            variantName: selectedVariant ? selectedVariant.name : "",
             quantity: selectedData.quantity,
             unitPrice: unitPrice,
             selectedOptions: selectedOptions,
             notes: selectedData.notes,
         };
+
         shoppingCart.push(cartItem);
         renderCart();
         closeModal();

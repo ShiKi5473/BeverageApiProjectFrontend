@@ -4,193 +4,185 @@ import '@material/web/textfield/filled-text-field.js';
 
 import { createQuantitySelector } from "./QuantitySelector.js";
 
-// 為 <md-chip> 建立的輔助函式
-function createChip(label, value, isSelected = false) {
+/**
+ * 建立 Chip 的輔助函式
+ */
+function createChip(label, value, isVariant = false, isSelected = false) {
     const chip = document.createElement("md-filter-chip");
     chip.label = label;
-    chip.dataset.value = value;
-    chip.selected = isSelected;
+
+    // 透過 dataset 區分是 variantId 還是 optionId
+    if (isVariant) {
+        chip.dataset.variantId = value;
+    } else {
+        chip.dataset.optionId = value;
+    }
+
+    // 設定初始選取狀態
+    if (isSelected) {
+        chip.selected = true;
+    }
+
     return chip;
 }
 
 /**
- * 建立客製化選項 Modal 的 "內容" (MWC 版本)
+ * 強制設定 ChipSet 為單選行為 (Radio Button 模式)
+ * @param {HTMLElement} chipSet - <md-chip-set> 元素
+ */
+function setupSingleSelectLogic(chipSet) {
+    // 雖然設定 singleSelect = true，但為了保險起見，我們手動監聽點擊事件
+    chipSet.singleSelect = true;
+
+    chipSet.addEventListener('click', (e) => {
+        // 找到被點擊的 chip (處理事件冒泡)
+        const clickedChip = e.target.closest('md-filter-chip');
+        if (!clickedChip) return;
+
+        // 1. 強制選取被點擊的項目 (防止使用者點擊已選取的項目時將其取消)
+        // 注意：Web Component 的內部狀態更新可能有時間差，這裡直接強制設定
+        clickedChip.selected = true;
+
+        // 2. 取消選取其他所有項目
+        Array.from(chipSet.children).forEach(child => {
+            if (child !== clickedChip) {
+                child.selected = false;
+            }
+        });
+    });
+}
+
+/**
+ * 建立客製化選項 Modal 的 "內容"
  */
 export function createOptionsModalContent(product) {
     const modalContent = document.createElement("div");
 
-    // 1. 標題與價格顯示
-    const header = document.createElement("div");
-    header.style.marginBottom = "1rem";
-
+    // 1. 標題
     const title = document.createElement("h3");
     title.textContent = product.name;
-    title.style.margin = "0 0 0.5rem 0";
+    modalContent.appendChild(title);
 
-    // 用來動態顯示當前價格的元素
-    const priceDisplay = document.createElement("div");
-    priceDisplay.style.color = "var(--md-sys-color-primary)";
-    priceDisplay.style.fontWeight = "bold";
-    // 預設顯示最低價或基本價
-    let currentBasePrice = product.basePrice;
-
-    // 如果有規格，找出最低價當預設顯示
-    if (product.variants && product.variants.length > 0) {
-        const minPrice = Math.min(...product.variants.map(v => v.price));
-        currentBasePrice = minPrice;
-    }
-    priceDisplay.textContent = `NT$ ${currentBasePrice}`;
-
-    header.appendChild(title);
-    header.appendChild(priceDisplay);
-    modalContent.appendChild(header);
-
-    // --- 【新增】規格選擇區 (Variants) ---
-    let selectedVariantId = null;
-    let selectedVariantPrice = 0;
-
+    // --- 2. 規格選擇區塊 (Variants) - 必選且單選 ---
     if (product.variants && product.variants.length > 0) {
         const variantContainer = document.createElement("div");
-        variantContainer.className = "option-group";
+        variantContainer.className = "option-group variant-group";
 
         const variantTitle = document.createElement("h4");
         variantTitle.textContent = "規格 (必選)";
         variantContainer.appendChild(variantTitle);
 
         const variantChipSet = document.createElement("md-chip-set");
-        variantChipSet.singleSelect = true; // 規格一定是單選
 
-        // 預設選中第一個規格
-        const sortedVariants = product.variants.sort((a, b) => a.price - b.price);
+        // 套用強制單選邏輯
+        setupSingleSelectLogic(variantChipSet);
 
-        sortedVariants.forEach((variant, index) => {
-            const isDefault = index === 0;
-            const chip = createChip(`${variant.name} ($${variant.price})`, variant.id, isDefault);
-
-            // 點擊事件：更新價格與選中狀態
-            chip.addEventListener("click", () => {
-                selectedVariantId = variant.id;
-                selectedVariantPrice = variant.price;
-                updateTotalPrice(); // 更新總價顯示
-            });
-
-            if (isDefault) {
-                selectedVariantId = variant.id;
-                selectedVariantPrice = variant.price;
-            }
+        product.variants.forEach(variant => {
+            const label = `${variant.name} (NT$ ${variant.price})`;
+            // 規格暫無預設值，isSelected 傳入 false (強制手動選擇)
+            const chip = createChip(label, variant.id, true, false);
             variantChipSet.appendChild(chip);
         });
 
         variantContainer.appendChild(variantChipSet);
         modalContent.appendChild(variantContainer);
     } else {
-        // 防呆：如果商品沒有規格資料 (舊資料)，使用基本價格
-        selectedVariantPrice = product.basePrice;
+        const msg = document.createElement("p");
+        msg.style.color = "red";
+        msg.textContent = "此商品無規格資料";
+        modalContent.appendChild(msg);
     }
 
-    // --- 選項群組 (Option Groups) ---
-    product.optionGroups.forEach((group) => {
-        const groupContainer = document.createElement("div");
-        groupContainer.className = "option-group";
+    // --- 3. 選項群組 (OptionGroups) ---
+    if (product.optionGroups) {
+        product.optionGroups.forEach((group) => {
+            const groupContainer = document.createElement("div");
+            groupContainer.className = "option-group";
 
-        const groupTitle = document.createElement("h4");
-        const selectionType = group.selectionType === "SINGLE" ? "單選" : "多選";
-        groupTitle.textContent = `${group.name} (${selectionType})`;
-        groupContainer.appendChild(groupTitle);
+            const groupTitle = document.createElement("h4");
+            const selectionType = group.selectionType === "SINGLE" ? "單選" : "多選";
+            // 若為單選，標示為必選
+            const requiredText = group.selectionType === "SINGLE" ? " (必選)" : "";
+            groupTitle.textContent = `${group.name} - ${selectionType}${requiredText}`;
+            groupContainer.appendChild(groupTitle);
 
-        const chipSet = document.createElement("md-chip-set");
-        if (group.selectionType === "SINGLE") {
-            chipSet.singleSelect = true;
-        }
+            const chipSet = document.createElement("md-chip-set");
 
-        group.options.forEach((option) => {
-            let label = option.optionName;
-            if (option.priceAdjustment > 0) label += ` (+$${option.priceAdjustment})`;
+            // 判斷是否為單選群組
+            if (group.selectionType === "SINGLE") {
+                setupSingleSelectLogic(chipSet);
+            }
 
-            const chip = createChip(label, option.optionId);
-            // 監聽點擊以更新價格
-            chip.addEventListener("click", updateTotalPrice);
-            chipSet.appendChild(chip);
+            group.options.forEach((option) => {
+                let labelText = option.optionName;
+                if (option.priceAdjustment > 0) {
+                    labelText += ` (+NT$ ${option.priceAdjustment})`;
+                }
+                // 讀取後端建議的 default 值
+                const isDefault = option.default === true;
+                const chip = createChip(labelText, option.optionId, false, isDefault);
+                chipSet.appendChild(chip);
+            });
+
+            groupContainer.appendChild(chipSet);
+            modalContent.appendChild(groupContainer);
         });
-        groupContainer.appendChild(chipSet);
-        modalContent.appendChild(groupContainer);
-    });
+    }
 
-    // 數量選擇器
+    // 4. 數量選擇器
     const quantitySelector = createQuantitySelector(1);
-    // 監聽數量變化
-    quantitySelector.element.addEventListener('click', updateTotalPrice); // 簡單觸發，精確點可以用 callback
     modalContent.appendChild(quantitySelector.element);
 
-    // 備註
+    // 5. 備註欄位
     const notesInput = document.createElement("md-filled-text-field");
     notesInput.label = "備註...";
+    notesInput.className = "modal-notes";
     notesInput.style.width = "100%";
-    notesInput.style.marginTop = "1rem";
     modalContent.appendChild(notesInput);
 
-    // --- 輔助函式：計算並更新總價 ---
-    function updateTotalPrice() {
-        // 1. 取得選中的選項加價
-        const selectedChips = Array.from(modalContent.querySelectorAll("md-filter-chip[selected]"));
-        // 注意：這裡需要判斷 chip 是規格還是選項，但我們的規格 chip 沒有存 priceAdjustment
-        // 較好的做法是重掃一次 product data，或簡單判定
-        // 這裡簡化：我們只算 OptionGroups 的加價。
-        // 規格的價格已經在 selectedVariantPrice 中了。
-
-        let optionTotal = 0;
-
-        // 找出選中的 Option IDs
-        const selectedIds = selectedChips.map(c => c.dataset.value);
-
-        // 從原始資料算加價 (比較安全)
-        product.optionGroups.forEach(group => {
-            group.options.forEach(opt => {
-                if (selectedIds.includes(String(opt.optionId))) {
-                    optionTotal += opt.priceAdjustment;
-                }
-            });
-        });
-
-        const qty = quantitySelector.getQuantity();
-        const unitTotal = selectedVariantPrice + optionTotal;
-        const finalTotal = unitTotal * qty;
-
-        priceDisplay.textContent = `NT$ ${finalTotal} (單價: ${unitTotal})`;
-    }
-
-    // 初始化價格顯示
-    updateTotalPrice();
-
+    // --- 6. 資料取得與驗證函式 ---
     const getSelectedData = () => {
-        // 排除規格的 Chip，只抓選項的 Chip
-        // 由於結構上都在 md-chip-set 裡，我們可以用 ID 反查
-        const allSelectedChips = Array.from(modalContent.querySelectorAll("md-filter-chip[selected]"));
-        const allSelectedIds = allSelectedChips.map(c => c.dataset.value);
+        // 取得 DOM 中的選取狀態
+        const selectedVariantChip = modalContent.querySelector(".variant-group md-filter-chip[selected]");
+        const selectedVariantId = selectedVariantChip ? selectedVariantChip.dataset.variantId : null;
 
-        // 區分出哪些是 OptionId
-        // 方法：遍歷 product.optionGroups 檢查
-        const selectedOptionIds = [];
-        product.optionGroups.forEach(group => {
-            group.options.forEach(opt => {
-                if (allSelectedIds.includes(String(opt.optionId))) {
-                    selectedOptionIds.push(String(opt.optionId));
+        const selectedOptionChips = Array.from(
+            modalContent.querySelectorAll("md-filter-chip[selected]:not([data-variant-id])")
+        );
+        const selectedOptionIds = selectedOptionChips.map((chip) => chip.dataset.optionId);
+
+        // --- 驗證邏輯 ---
+
+        // (1) 驗證規格：若商品有規格列表，則必須選擇一個
+        if (product.variants && product.variants.length > 0) {
+            if (!selectedVariantId) {
+                alert("請選擇規格 (如: 中杯/大杯)");
+                return null;
+            }
+        }
+
+        // (2) 驗證單選群組：若 selectionType 為 SINGLE，則視為必選
+        if (product.optionGroups) {
+            for (const group of product.optionGroups) {
+                if (group.selectionType === "SINGLE") {
+                    const groupOptionIds = group.options.map(opt => String(opt.optionId));
+                    const hasSelected = selectedOptionIds.some(selectedId =>
+                        groupOptionIds.includes(selectedId)
+                    );
+
+                    if (!hasSelected) {
+                        alert(`請選擇 ${group.name}`);
+                        return null;
+                    }
                 }
-            });
-        });
-
-        // 檢查是否選擇了規格
-        if (!selectedVariantId && product.variants && product.variants.length > 0) {
-            alert("錯誤：請選擇規格");
-            return null; // 回傳 null 表示驗證失敗
+            }
         }
 
         return {
+            variantId: selectedVariantId,
             quantity: quantitySelector.getQuantity(),
             notes: notesInput.value,
             selectedOptionIds: selectedOptionIds,
-            variantId: selectedVariantId,    // 【關鍵新增】
-            variantPrice: selectedVariantPrice // 方便 pos.js 使用
         };
     };
 

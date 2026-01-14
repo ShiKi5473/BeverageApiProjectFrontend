@@ -11,20 +11,27 @@ export function createCartItem(item) {
     .map((opt) => opt.optionName)
     .join(", ");
 
-  const notesText = item.notes
-    ? `<div class="cart-item-notes">備註: ${item.notes}</div>`
-    : "";
+    const notesText = item.notes
+        ? `<div class="cart-item-notes">備註: ${item.notes}</div>`
+        : "";
 
-  itemElement.innerHTML = `
+    // 顯示名稱組合：商品名 (規格名)
+    // 例如：珍珠奶茶 (大杯)
+    let displayName = item.name;
+    if (item.variantName) {
+        displayName += ` (${item.variantName})`;
+    }
+
+    itemElement.innerHTML = `
     <div class="cart-item-header">
-      <span class="cart-item-name">${item.name} (x${item.quantity})</span>
+      <span class="cart-item-name">${displayName} (x${item.quantity})</span>
       <button class="cart-item-remove-btn" data-cart-id="${item.id}">×</button>
     </div>
     <div class="cart-item-options">${optionsText}</div>
     ${notesText}
     <div class="cart-item-price">NT$ ${item.unitPrice * item.quantity}</div>
   `;
-  return itemElement;
+    return itemElement;
 }
 
 /**
