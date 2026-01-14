@@ -35,6 +35,10 @@ const optionsDialog = document.getElementById("options-dialog");
 const dialogContentSlot = document.getElementById("dialog-content-slot");
 const modalCloseButton = document.getElementById("modal-close-btn");
 const modalAddButton = document.getElementById("modal-add-btn");
+const restoreButton = document.getElementById("restore-button");
+const heldOrdersDialog = document.getElementById("held-orders-dialog");
+const heldOrdersList = document.getElementById("held-orders-list");
+const heldModalCloseBtn = document.getElementById("held-modal-close-btn");
 
 document.addEventListener("DOMContentLoaded", () => {
     if (!MY_STORE_ID) {
@@ -407,6 +411,155 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    /**
+     * 開啟暫存訂單選擇面板
+     */
+    async function openHeldOrdersModal() {
+        // 如果購物車不為空，提示使用者
+        if (shoppingCart.length > 0) {
+            if (!confirm("購物車內尚有商品，取出暫存訂單將會清空目前購物車。是否繼續？")) {
+                return;
+            }
+        }
+
+        heldOrdersList.innerHTML = "<md-list-item>載入中...</md-list-item>";
+        heldOrdersDialog.show();
+
+        try {
+            // 呼叫 API 取得 HELD 狀態的訂單
+            const orders = await getOrdersByStatus(MY_STORE_ID, "HELD");
+
+            renderHeldOrdersList(orders);
+        } catch (error) {
+            console.error("讀取暫存訂單失敗:", error);
+            heldOrdersList.innerHTML = `<md-list-item>讀取失敗: ${error.message}</md-list-item>`;
+        }
+    }
+
+    /**
+     * 渲染暫存訂單列表
+     */
+    function renderHeldOrdersList(orders) {
+        heldOrdersList.innerHTML = "";
+
+        if (!orders || orders.length === 0) {
+            heldOrdersList.innerHTML = "<div style='padding:15px; text-align:center;'>沒有暫存訂單</div>";
+            return;
+        }
+
+        // 依時間倒序排列 (最新的在上面)
+        orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        orders.forEach(order => {
+            const itemEl = document.createElement("md-list-item");
+            itemEl.className = "held-order-item";
+
+            // 格式化時間
+            const timeStr = new Date(order.createdAt).toLocaleString('zh-TW', {
+                hour: '2-digit', minute: '2-digit', month: 'numeric', day: 'numeric'
+            });
+
+            // 建立顯示內容 (訂單號 + 金額 + 時間)
+            itemEl.innerHTML = `
+                <div slot="headline">單號: #${order.orderNumber}</div>
+                <div slot="supporting-text">品項數: ${order.items.length} | 時間: ${timeStr}</div>
+                <div slot="trailing-supporting-text" class="held-order-price">NT$ ${order.totalAmount}</div>
+            `;
+
+            // 點擊事件：恢復此訂單
+            itemEl.addEventListener("click", () => restoreHeldOrder(order));
+            heldOrdersList.appendChild(itemEl);
+        });
+    }
+
+    /**
+     * 恢復選定的暫存訂單到購物車
+     */
+    async function restoreHeldOrder(order) {
+        try {
+            const restoredCart = [];
+
+            // 遍歷訂單項目，將後端資料 (ItemDto) 轉換回前端購物車格式 (CartItem)
+            for (const item of order.items) {
+                // 1. 從 allProducts 找回完整的商品資訊
+                const product = allProducts.find(p => String(p.id) === String(item.productId));
+                // 遍歷訂單項目，將後端資料 (ItemDto) 轉換回前端購物車格式 (CartItem)
+                for (const item of order.items) {
+                    // 1. 從 allProducts 找回完整的商品資訊
+                    // [修正點 1] 使用 String() 轉換 ID，避免 數值 vs 字串 的型別錯誤
+                    const product = allProducts.find(p => String(p.id) === String(item.productId));
+
+                    if (!product) {
+                        console.warn(`找不到商品 ID: ${item.productId} (型別: ${typeof item.productId})，略過此項目`);
+                        continue;
+                    }
+
+                    // --- [修正點 2] 補回處理規格 (Variant) 的邏輯 ---
+                    let basePrice = product.basePrice;
+                    let variantName = "";
+
+                    // 檢查後端回傳的項目是否有 variantId
+                    if (item.variantId && product.variants) {
+                        // 同樣使用 String() 確保比對正確
+                        const variant = product.variants.find(v => String(v.id) === String(item.variantId));
+                        if (variant) {
+                            basePrice = variant.price; // 使用規格價格
+                            variantName = variant.name;
+                        }
+                    }
+                    // --- 規格邏輯結束 ---
+
+                    // 2. 找回選項詳細資訊
+                    const allProductOptions = product.optionGroups.flatMap(g => g.options);
+                    const selectedOptions = allProductOptions.filter(opt =>
+                        item.optionIds && item.optionIds.includes(opt.optionId)
+                    );
+
+                    // 3. 重新計算單價 (使用正確的 basePrice)
+                    const optionPriceAdjustment = selectedOptions.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
+                    const unitPrice = basePrice + optionPriceAdjustment;
+
+                    // 4. 建立購物車物件
+                    restoredCart.push({
+                        id: Date.now() + Math.random(),
+                        productId: product.id,
+                        name: product.name,
+                        // [修正點 3] 寫入規格資訊
+                        variantId: item.variantId || null,
+                        variantName: variantName,
+                        quantity: item.quantity,
+                        unitPrice: unitPrice,
+                        selectedOptions: selectedOptions,
+                        notes: item.notes || ""
+                    });
+                }
+
+                // 更新購物車
+                if (restoredCart.length === 0) {
+                    alert("無法還原訂單內容 (可能找不到對應商品)");
+                    return;
+                }
+
+                shoppingCart = restoredCart;
+                renderCart();
+
+                // 關閉視窗
+                heldOrdersDialog.close();
+
+                // 取出後，將原本後端的該筆「暫存單」取消
+                await updateOrderStatus(order.orderId, "CANCELLED");
+
+                // 這裡不需 alert，體驗較順暢
+                // alert(`已取出訂單 #${order.orderNumber}`);
+
+            }
+
+        }catch(error){
+            console.error("取出訂單失敗:", error);
+            alert("取出訂單時發生錯誤，請稍後再試");
+        }
+    }
+
     // --- 10. 啟動程序 ---
 
     const checkoutButton = document.getElementById("checkout-button");
@@ -414,6 +567,11 @@ document.addEventListener("DOMContentLoaded", () => {
     checkoutButton.addEventListener("click", goToCheckout);
     holdButton.addEventListener("click", holdOrder);
     pickupListEl.addEventListener("click", handleCompletePickup);
+    restoreButton.addEventListener("click", openHeldOrdersModal);
+
+    heldModalCloseBtn.addEventListener("click", () => {
+        heldOrdersDialog.close();
+    });
 
     loadAllData();
     loadPickupOrders();
