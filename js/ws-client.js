@@ -64,8 +64,15 @@ export async function connectToWebSocket(storeId, onMessageCallback, onConnectCa
             });
 
             stompClient.subscribe('/user/queue/orders', (message) => {
-                logger.info("收到個人通知:", message.body);
-                // TODO: 觸發 Toast
+                try {
+                    const notification = JSON.parse(message.body);
+                    logger.info("收到個人通知:", notification);
+                    if (onMessageCallback) {
+                        onMessageCallback('USER_NOTIFICATION', notification);
+                    }
+                } catch (e) {
+                    logger.error("個人通知解析失敗:", e);
+                }
             });
         },
         // On Error

@@ -143,6 +143,23 @@ export async function createOrder(orderData) {
 }
 
 /**
+ * 建立線上訂單 (非同步)
+ * 對應後端: POST /api/v1/online-orders
+ */
+export async function createOnlineOrder(orderData) {
+    const response = await fetchWithAuth("/api/v1/online-orders", {
+        method: "POST",
+        body: JSON.stringify(orderData),
+    });
+
+    if (response.status !== 202) { // 預期回傳 202 Accepted
+        const errorBody = await response.text();
+        throw new Error(`線上訂單建立失敗: ${errorBody}`);
+    }
+    return response.json();
+}
+
+/**
  * 執行 POS 現場「一步到位」結帳
  * (對應 OrderController @PostMapping("/pos-checkout"))
  * @param {object} checkoutData - 包含 items, memberId, pointsToUse, paymentMethod 的 DTO

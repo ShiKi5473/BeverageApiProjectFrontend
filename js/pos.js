@@ -1,4 +1,5 @@
 import logger from './utils/logger.js';
+import { initAppNotifications } from './app-notifications.js';
 import '@material/web/icon/icon.js';
 import '@material/web/iconbutton/icon-button.js';
 import '@material/web/list/list.js';
@@ -38,6 +39,9 @@ const modalCloseButton = document.getElementById("modal-close-btn");
 const modalAddButton = document.getElementById("modal-add-btn");
 
 document.addEventListener("DOMContentLoaded", () => {
+    // 啟動全域通知監聽
+    initAppNotifications();
+
     if (!MY_STORE_ID) {
         const errorMsg = "錯誤：找不到店家 ID (storeId)。\n\n品牌管理員帳號無法使用 POS 點餐系統。\n\n將導回登入頁。";
         logger.error(errorMsg);

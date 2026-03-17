@@ -16,10 +16,13 @@ import {
     findMemberByPhone
 } from "./api.js";
 import { createNavbar } from "./components/Navbar.js";
+import { initAppNotifications } from './app-notifications.js';
 
 const paymentMethodChips = document.getElementById("payment-method-chips");
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // 啟動全域通知監聽
+    initAppNotifications();
 
     // --- 1. 狀態變數 ---
     let currentCartItems = [];

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>線上點餐 - Beverage POS</title>
+
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/components/navbar.css" />
+    <link rel="stylesheet" href="../css/components/productCard.css" />
+    <link rel="stylesheet" href="../css/components/modal.css" />
+    <link rel="stylesheet" href="../css/components/notification.css" />
+    <link rel="stylesheet" href="../css/pages/online_order.css" />
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+
+    <!-- Material Web Components (from bundle or individual if setup allows, assumed available as per other files) -->
+</head>
+<body>
+
+<div class="customer-layout">
+    <!-- Header -->
+    <header class="customer-header">
+        <div class="header-content">
+            <h1 class="brand-title">Beverage Online</h1>
+            <div class="header-actions">
+                <md-icon-button id="cart-toggle-btn">
+                    <md-icon>shopping_cart</md-icon>
+                    <span id="cart-badge" class="badge hidden">0</span>
+                </md-icon-button>
+                <md-icon-button id="user-profile-btn">
+                    <md-icon>account_circle</md-icon>
+                </md-icon-button>
+            </div>
+        </div>
+        <!-- Store Selector or info -->
+        <div class="store-info-bar">
+            所在分店：<span id="current-store-name">載入中...</span>
+            <md-text-button id="change-store-btn" style="--md-text-button-label-text-color: #fff; margin-left: auto;">切換</md-text-button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="customer-main">
+        <!-- Categories horizontal scroll -->
+        <nav class="category-nav" id="category-nav">
+            <!-- Categories injected here -->
+            <button class="cat-pill active">全部</button>
+        </nav>
+
+        <!-- Product Grid -->
+        <section class="product-grid" id="customer-product-grid">
+            <div class="loading-state">載入商品中...</div>
+        </section>
+    </main>
+
+    <!-- Floating Cart / Checkout Bar (Mobile sticky bottom) -->
+    <div class="bottom-cart-bar hidden" id="bottom-cart-bar">
+        <div class="cart-summary">
+            <span class="cart-total-label">總計</span>
+            <span class="cart-total-amount" id="bottom-cart-total">NT$ 0</span>
+        </div>
+        <md-filled-button id="go-to-checkout-btn">查看購物車</md-filled-button>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Store Selector Modal -->
+    <md-dialog id="store-selector-dialog">
+        <div slot="headline">選擇點餐分店</div>
+        <div slot="content" id="store-list-container">
+            載入中...
+        </div>
+        <div slot="actions">
+            <md-text-button dialog-action="cancel">取消</md-text-button>
+        </div>
+    </md-dialog>
+
+    <!-- Product Options Modal (reusing logic, but maybe custom mobile styling) -->
+    <md-dialog id="options-dialog">
+        <div slot="content" id="dialog-content-slot"></div>
+        <div slot="actions">
+            <md-outlined-button id="modal-close-btn">取消</md-outlined-button>
+            <md-filled-button id="modal-add-btn">加入購物車</md-filled-button>
+        </div>
+    </md-dialog>
+
+    <!-- Custom Checkout Modal / Slide Up Sheet -->
+    <div class="checkout-sheet" id="checkout-sheet">
+        <div class="sheet-header">
+            <h2>購物車明細</h2>
+            <md-icon-button id="close-sheet-btn">
+                <md-icon>close</md-icon>
+            </md-icon-button>
+        </div>
+        <div class="sheet-content" id="cart-items-container">
+            <!-- Cart items -->
+        </div>
+        <div class="sheet-footer">
+            <div class="final-total">
+                <span>應付總額</span>
+                <span id="sheet-final-amount">NT$ 0</span>
+            </div>
+            <md-filled-button id="submit-order-btn" class="submit-order-btn">
+                確認下單
+            </md-filled-button>
+        </div>
+    </div>
+    <div class="sheet-overlay" id="sheet-overlay"></div>
+
+    <!-- Active Orders Tracking Tracker -->
+    <div id="active-order-tracker" class="order-tracker hidden">
+        <div class="tracker-header">
+            <h3>目前訂單進度</h3>
+            <span id="tracker-order-number" class="order-number"></span>
+        </div>
+        <div class="tracker-status">
+            <md-icon id="tracker-icon">hourglass_empty</md-icon>
+            <span id="tracker-text">等待店家接單中...</span>
+        </div>
+        <p class="tracker-subtext">我們已為您發送 WebSocket 網頁推播通知，您也可以在此追蹤狀態。</p>
+    </div>
+
+</div>
+
+<!-- Scripts -->
+<script type="importmap">
+  {
+    "imports": {
+      "stompjs": "https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js",
+      "sockjs-client": "https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"
+    }
+  }
+</script>
+<script src="../js/online_order.js" type="module"></script>
+</body>
+</html>
