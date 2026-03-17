@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import {createNavbar} from './components/Navbar.js';
 import { getInventoryItems, submitInventoryAudit, submitShipment } from './api.js';
 
@@ -76,7 +77,7 @@ async function loadInventoryData() {
         renderInventoryList();
 
     } catch (error) {
-        console.error('載入庫存失敗:', error);
+        logger.error('載入庫存失敗:', error);
         alert('無法讀取庫存列表，請檢查網路或重新登入。');
     } finally {
         if (loadingIndicator) loadingIndicator.style.display = 'none';
@@ -334,7 +335,7 @@ async function submitAudit() {
         window.location.reload(); // 重新整理
 
     } catch (error) {
-        console.error('提交失敗', error);
+        logger.error('提交失敗', error);
         alert(`提交失敗: ${error.message}`);
         btn.disabled = false;
         btn.textContent = '提交盤點報告 (Submit)';
@@ -419,7 +420,7 @@ async function handleShipmentSubmit(e) {
         await loadInventoryData();
 
     } catch (error) {
-        console.error(error);
+        logger.error(error);
         alert('進貨失敗: ' + (error.message || '未知錯誤'));
     } finally {
         btn.disabled = false;

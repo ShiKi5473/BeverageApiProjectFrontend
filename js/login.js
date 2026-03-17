@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import '@material/web/textfield/filled-text-field.js';
 import '@material/web/button/filled-button.js';
 import { login } from './api.js';         // 引入 API 方法
@@ -44,14 +45,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.storeId) {
                     window.location.href = "pos.html";
                 } else {
-                    console.error("員工帳號異常：無分店綁定");
+                    logger.error("員工帳號異常：無分店綁定");
                     errorMessage.textContent = "帳號設定異常，請聯繫管理員";
                 }
             }
 
         } catch (error) {
             // 4. 處理錯誤顯示
-            console.error("登入錯誤:", error);
+            logger.error("登入錯誤:", error);
             errorMessage.textContent = error.message || "無法連線至伺服器";
         }
     });

@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import '@material/web/icon/icon.js';
 import '@material/web/iconbutton/icon-button.js';
 import '@material/web/list/list.js';
@@ -39,7 +40,7 @@ const modalAddButton = document.getElementById("modal-add-btn");
 document.addEventListener("DOMContentLoaded", () => {
     if (!MY_STORE_ID) {
         const errorMsg = "錯誤：找不到店家 ID (storeId)。\n\n品牌管理員帳號無法使用 POS 點餐系統。\n\n將導回登入頁。";
-        console.error(errorMsg);
+        logger.error(errorMsg);
         alert(errorMsg);
         logout();
         return;
@@ -84,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
             shoppingCart = [];
             renderCart();
         } catch (error) {
-            console.error(` ${action} 失敗:`, error);
+            logger.error(` ${action} 失敗:`, error);
             alert(` ${action} 失敗: ${error.message}`);
         }
     }
@@ -99,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.href = "checkout.html";
         } catch (e) {
             alert("儲存購物車失敗，可能是瀏覽器空間不足。");
-            console.error("無法儲存 localStorage:", e);
+            logger.error("無法儲存 localStorage:", e);
         }
     }
 
@@ -116,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderProducts("all");
             addCategoryClickListeners();
         } catch (error) {
-            console.error("載入資料時發生錯誤:", error);
+            logger.error("載入資料時發生錯誤:", error);
             productGrid.innerHTML = `<p class="error">資料載入失敗: ${error.message}</p>`;
             categoryList.innerHTML = `<md-list-item headline="載入失敗"></md-list-item>`;
         }
@@ -305,12 +306,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = JSON.parse(event.data);
                 handlePosSseMessage(data.action, data.payload);
             } catch (e) {
-                console.error("POS SSE 訊息解析失敗:", e);
+                logger.error("POS SSE 訊息解析失敗:", e);
             }
         };
 
         eventSource.onerror = (err) => {
-            console.error("POS SSE 連線錯誤 (將自動重連):", err);
+            logger.error("POS SSE 連線錯誤 (將自動重連):", err);
             if (eventSource.readyState === EventSource.CLOSED) {
                 // Token 可能過期，可考慮導向登入或提示
             }
@@ -321,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
      * 【修改 3】處理 SSE 訊息 (原 handlePosWebSocketMessage)
      */
     function handlePosSseMessage(action, order) {
-        console.log("POS 收到 SSE 訊息:", action, order.orderNumber);
+        logger.info("POS 收到 SSE 訊息:", action, order.orderNumber);
         const orderElId = `pickup-order-${order.orderId}`;
         const existingEl = document.getElementById(orderElId);
 
@@ -358,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
             await updateOrderStatus(orderId, "CLOSED");
             // 成功！SSE "REMOVE_FROM_PICKUP" 事件會自動更新 UI
         } catch (error) {
-            console.error("更新訂單為 CLOSED 失敗:", error);
+            logger.error("更新訂單為 CLOSED 失敗:", error);
             alert(`訂單 ${orderId} 更新失敗: ${error.message}`);
             button.disabled = false;
             button.textContent = "完成取餐";

@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 // frontend/js/report.js
 import * as echarts from 'echarts';
 import '@material/web/button/filled-button.js';
@@ -61,7 +62,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // 預設載入 "全品牌" (storeId = "")
             loadReportData("");
         } catch (e) {
-            console.error("無法載入分店列表", e);
+            logger.error("無法載入分店列表", e);
             alert("無法載入分店列表");
         }
     }
@@ -148,7 +149,7 @@ async function loadReportData(storeId) {
         }
 
     } catch (error) {
-        console.error("載入報表失敗", error);
+        logger.error("載入報表失敗", error);
         alert(error.message);
     } finally {
         revenueChartInstance.hideLoading();

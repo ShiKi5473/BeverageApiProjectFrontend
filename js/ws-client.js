@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import Stomp from 'stompjs';
 import SockJS from 'sockjs-client'
 import { guestLogin } from './api.js';
@@ -26,7 +27,7 @@ export async function connectToWebSocket(storeId, onMessageCallback, onConnectCa
             // 【修改】使用 setAuthSession 儲存 Token
             setAuthSession(res, guestName);
         } catch (e) {
-            console.error("訪客登入失敗:", e);
+            logger.error("訪客登入失敗:", e);
             if (onErrorCallback) onErrorCallback("訪客登入失敗，無法建立連線");
             return;
         }
@@ -47,7 +48,7 @@ export async function connectToWebSocket(storeId, onMessageCallback, onConnectCa
     stompClient.connect(headers,
         // On Connect
         (frame) => {
-            console.log("WebSocket 已連線:", frame);
+            logger.info("WebSocket 已連線:", frame);
             if (onConnectCallback) onConnectCallback();
 
             const topic = `/topic/kds/store/${storeId}`;
@@ -58,18 +59,18 @@ export async function connectToWebSocket(storeId, onMessageCallback, onConnectCa
                         onMessageCallback(kdsMessage.action, kdsMessage.payload);
                     }
                 } catch (e) {
-                    console.error("WS 訊息解析失敗:", e);
+                    logger.error("WS 訊息解析失敗:", e);
                 }
             });
 
             stompClient.subscribe('/user/queue/orders', (message) => {
-                console.log("收到個人通知:", message.body);
+                logger.info("收到個人通知:", message.body);
                 // TODO: 觸發 Toast
             });
         },
         // On Error
         (error) => {
-            console.error("WS 連線失敗:", error);
+            logger.error("WS 連線失敗:", error);
             const errorMsg = typeof error === 'string' ? error : error.headers?.message;
 
             // 若 Token 失效，呼叫統一的 logout 或清除邏輯

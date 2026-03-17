@@ -1,4 +1,5 @@
 import { getAccessToken, logout } from './auth.js';
+import logger from './utils/logger.js';
 
 // ==========================================
 // 🔐 認證相關 API
@@ -67,14 +68,14 @@ async function fetchWithAuth(endpoint, options = {}) {
         const response = await fetch(url, { ...options, headers });
 
         if (response.status === 401) {
-            console.error("Token 失效 (401)，自動登出");
+            logger.warn("Token 失效 (401)，自動登出");
             logout(); // 呼叫 auth.js 的登出
             return;
         }
 
         return response;
     } catch (error) {
-        console.error("API 請求失敗:", error);
+        logger.error("API 請求失敗:", error);
         throw error;
     }
 }

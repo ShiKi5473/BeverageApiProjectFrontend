@@ -1,3 +1,4 @@
+import logger from './utils/logger.js';
 import '@material/web/chips/assist-chip.js';
 import '@material/web/labs/card/filled-card.js';
 import '@material/web/button/filled-button.js';
@@ -11,7 +12,7 @@ const MY_STORE_ID = getStoreId();
 document.addEventListener("DOMContentLoaded", () => {
     if (!MY_STORE_ID) {
         const errorMsg = "錯誤：找不到店家 ID (storeId)。KDS 無法啟動。\n將導回登入頁。";
-        console.error(errorMsg);
+        logger.error(errorMsg);
         alert(errorMsg);
         window.location.href = "login.html";
         return; // 中斷執行
@@ -39,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
             pickupOrders.forEach(order => renderOrderCard(order, pickupListEl));
 
         } catch (error) {
-            console.error("載入初始訂單失敗:", error);
+            logger.error("載入初始訂單失敗:", error);
             preparingListEl.innerHTML = `<p class="error">${error.message}</p>`;
         }
     }
@@ -50,17 +51,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function startSse() {
         const token = getAccessToken();
         if (!token) {
-            console.error("SSE 啟動失敗：找不到 Token");
+            logger.error("SSE 啟動失敗：找不到 Token");
             return;
         }
 
-        console.log("嘗試建立 SSE 連線...");
+        logger.info("嘗試建立 SSE 連線...");
         // 將 token 帶在 URL 上 (需配合後端 JwtAuthenticationFilter 修改)
         const eventSource = new EventSource(`/api/v1/kds/stream?token=${token}`);
 
         // 1. 連線成功
         eventSource.onopen = () => {
-            console.log("SSE 已連線");
+            logger.info("SSE 已連線");
             statusChip.label = `SSE 已連線 (店家 ${MY_STORE_ID})`;
             statusChip.classList.remove("status-disconnected");
             statusChip.classList.add("status-connected");
@@ -73,13 +74,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 // 呼叫原本的邏輯處理畫面更新
                 handleKdsMessage(data.action, data.payload);
             } catch (e) {
-                console.error("SSE 訊息解析失敗:", e);
+                logger.error("SSE 訊息解析失敗:", e);
             }
         };
 
         // 3. 連線錯誤
         eventSource.onerror = (err) => {
-            console.error("SSE 連線錯誤:", err);
+            logger.error("SSE 連線錯誤:", err);
             statusChip.label = `連線中斷 (重試中...)`;
             statusChip.classList.remove("status-connected");
             statusChip.classList.add("status-disconnected");
@@ -141,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderId = `kds-order-${order.orderId}`;
         const existingCard = document.getElementById(orderId);
 
-        console.log("KDS 收到訊息:", action, order.orderNumber);
+        logger.info("KDS 收到訊息:", action, order.orderNumber);
 
         if (action === "NEW_ORDER") {
             renderOrderCard(order, preparingListEl);
@@ -178,7 +179,7 @@ document.addEventListener("DOMContentLoaded", () => {
             await updateOrderStatus(orderId, "READY_FOR_PICKUP");
             // 成功後不需手動移卡片，等待 SSE 的 MOVE_TO_PICKUP 事件
         } catch (error) {
-            console.error("更新訂單失敗:", error);
+            logger.error("更新訂單失敗:", error);
             alert(`訂單 ${orderId} 更新失敗: ${error.message}`);
             button.disabled = false;
             button.textContent = "製作完成";
