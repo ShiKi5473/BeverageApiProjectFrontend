@@ -37,7 +37,9 @@ export async function connectToWebSocket(storeId, onMessageCallback, onConnectCa
     const token = getAccessToken();
 
     // 3. 建立連線
-    const socket = new SockJS("http://localhost:8080/ws-kds");
+    // 【修改】使用環境變數取代寫死的 localhost:8080
+    const wsBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const socket = new SockJS(`${wsBaseUrl}/ws-kds`);
     const stompClient = Stomp.over(socket);
     // stompClient.debug = null;
 

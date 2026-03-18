@@ -17,6 +17,8 @@ import {
 } from "./api.js";
 import { createNavbar } from "./components/Navbar.js";
 import { initAppNotifications } from './app-notifications.js';
+// 【修改】匯入具名常數，取代魔術數字
+import { POINTS_PER_CURRENCY_UNIT } from './constants.js';
 
 const paymentMethodChips = document.getElementById("payment-method-chips");
 
@@ -193,8 +195,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             pointsErrorEl.textContent = "";
         }
 
-        // 規則：10 點折 1 元
-        pointsDiscount = Math.floor(pointsToUse / 10);
+        // 規則：N 點折 1 元（比率由常數定義）
+        pointsDiscount = Math.floor(pointsToUse / POINTS_PER_CURRENCY_UNIT);
         finalAmount = originalTotalAmount - pointsDiscount;
 
         // 更新左欄

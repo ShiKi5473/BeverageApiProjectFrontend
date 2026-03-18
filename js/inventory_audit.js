@@ -1,6 +1,8 @@
 import logger from './utils/logger.js';
 import {createNavbar} from './components/Navbar.js';
 import { getInventoryItems, submitInventoryAudit, submitShipment } from './api.js';
+// 【修改】匯入具名常數，取代魔術數字
+import { INVENTORY_VARIANCE_THRESHOLD } from './constants.js';
 
 // --- 全域變數 ---
 let currentInventoryItems = []; // 暫存庫存資料，避免重複 Fetch
@@ -199,7 +201,7 @@ function createAuditRow(item) {
 
             // 2. 顯示警示/提示訊息
             warningMsg.style.display = 'block';
-            if (diff > 5) {
+            if (diff > INVENTORY_VARIANCE_THRESHOLD) {
                 warningMsg.textContent = "⚠️ 數量增加較多，請確認是否為進貨？(選填效期)";
             } else {
                 warningMsg.textContent = "ℹ️ 庫存回補：建議填寫效期，若不填則由系統推斷。";

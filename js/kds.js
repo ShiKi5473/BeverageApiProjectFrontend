@@ -3,8 +3,10 @@ import '@material/web/chips/assist-chip.js';
 import '@material/web/labs/card/filled-card.js';
 import '@material/web/button/filled-button.js';
 
-import { getOrdersByStatus, updateOrderStatus, getSseTicket } from "./api.js";
+import { getOrdersByStatus, updateOrderStatus } from "./api.js";
 import { getStoreId } from './auth.js';
+// 【修改】匯入共用 SSE 連線工具，取代頁面內重複的 SSE 邏輯
+import { createSseConnection } from './utils/sseClient.js';
 
 
 const MY_STORE_ID = getStoreId();
@@ -46,58 +48,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /**
-     * 啟動 SSE 連線
-     * 流程：先向後端取得一次性 ticket，再用 ticket 建立 EventSource。
-     * 這樣做是因為 EventSource API 不支援自訂 Header（無法帶 Authorization），
-     * 改用短期一次性 ticket 避免 JWT 暴露在 URL 中。
+     * 【修改】啟動 SSE 連線 — 改用共用的 createSseConnection 工具
+     * 內建 ticket 取得、訊息解析、斷線自動重連邏輯
      */
-    async function startSse() {
-        try {
-            // 第一步：透過已認證的 API 取得一次性 SSE ticket（有效期 30 秒，僅限使用一次）
-            const ticket = await getSseTicket();
-
-            logger.info("已取得 SSE ticket，嘗試建立連線...");
-            // 第二步：用 ticket 建立 SSE 連線（ticket 會在後端驗證後立即銷毀）
-            const eventSource = new EventSource(`/api/v1/kds/stream?ticket=${ticket}`);
-
-            // 連線成功
-            eventSource.onopen = () => {
+    function startSse() {
+        createSseConnection('/api/v1/kds/stream', {
+            onMessage: handleKdsMessage,
+            // 連線成功時更新狀態 Chip
+            onOpen: () => {
                 logger.info("SSE 已連線");
                 statusChip.label = `SSE 已連線 (店家 ${MY_STORE_ID})`;
                 statusChip.classList.remove("status-disconnected");
                 statusChip.classList.add("status-connected");
-            };
-
-            // 收到訊息
-            eventSource.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    handleKdsMessage(data.action, data.payload);
-                } catch (e) {
-                    logger.error("SSE 訊息解析失敗:", e);
-                }
-            };
-
-            // 連線錯誤：關閉當前連線，等待後重新取得 ticket 再重連
-            // （不能依賴 EventSource 自動重連，因為舊 ticket 已被銷毀）
-            eventSource.onerror = (err) => {
-                logger.error("SSE 連線錯誤:", err);
+            },
+            // 連線錯誤時更新狀態 Chip（重連由 sseClient 自動處理）
+            onError: () => {
                 statusChip.label = `連線中斷 (重試中...)`;
                 statusChip.classList.remove("status-connected");
                 statusChip.classList.add("status-disconnected");
-
-                // 關閉舊連線，避免 EventSource 用過期的 ticket 自動重連
-                eventSource.close();
-                // 5 秒後重新取得新 ticket 並建立連線
-                setTimeout(() => startSse(), 5000);
-            };
-        } catch (error) {
-            logger.error("取得 SSE ticket 失敗，5 秒後重試:", error);
-            statusChip.label = `連線失敗 (重試中...)`;
-            statusChip.classList.remove("status-connected");
-            statusChip.classList.add("status-disconnected");
-            setTimeout(() => startSse(), 5000);
-        }
+            },
+        });
     }
 
     /**

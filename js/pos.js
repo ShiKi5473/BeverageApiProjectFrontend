@@ -18,13 +18,14 @@ import {
     createOrder,
     getOrdersByStatus,
     updateOrderStatus,
-    getSseTicket // 取得一次性 SSE 連線票券（取代直接在 URL 中傳遞 JWT）
 } from "./api.js";
 import { logout, getStoreId } from './auth.js';
 import { createProductCard } from "./components/ProductCard.js";
 import { createOptionsModalContent } from "./components/OptionsModal.js";
 import { createCartItem, updateCartTotal } from "./components/Cart.js";
 import { createNavbar } from "./components/Navbar.js";
+// 【修改】匯入共用 SSE 連線工具，取代頁面內重複的 SSE 邏輯
+import { createSseConnection } from './utils/sseClient.js';
 // 【修改 1】移除 WebSocket
 // import { connectToWebSocket } from "./ws-client.js";
 
@@ -297,38 +298,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /**
-     * 啟動 SSE 連線
-     * 先向後端取得一次性 ticket，再用 ticket 建立 EventSource。
-     * 避免 JWT 暴露在 URL query parameter 中（EventSource API 不支援自訂 Header）。
+     * 【修改】啟動 SSE 連線 — 改用共用的 createSseConnection 工具
+     * 內建 ticket 取得、訊息解析、斷線自動重連邏輯
      */
-    async function startSse() {
-        try {
-            // 透過已認證的 API 取得一次性 SSE ticket（有效期 30 秒，僅限使用一次）
-            const ticket = await getSseTicket();
-
-            // 用 ticket 建立 SSE 連線（後端驗證後會立即銷毀 ticket）
-            const eventSource = new EventSource(`/api/v1/kds/stream?ticket=${ticket}`);
-
-            eventSource.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    handlePosSseMessage(data.action, data.payload);
-                } catch (e) {
-                    logger.error("POS SSE 訊息解析失敗:", e);
-                }
-            };
-
-            // 連線錯誤：關閉當前連線並重新取得 ticket 再重連
-            // （不能依賴 EventSource 自動重連，因為舊 ticket 已被銷毀）
-            eventSource.onerror = (err) => {
-                logger.error("POS SSE 連線錯誤:", err);
-                eventSource.close();
-                setTimeout(() => startSse(), 5000);
-            };
-        } catch (error) {
-            logger.error("POS 取得 SSE ticket 失敗，5 秒後重試:", error);
-            setTimeout(() => startSse(), 5000);
-        }
+    function startSse() {
+        createSseConnection('/api/v1/kds/stream', {
+            onMessage: handlePosSseMessage,
+        });
     }
 
     /**

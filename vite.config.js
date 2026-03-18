@@ -62,6 +62,8 @@ export default defineConfig({
                 checkout: 'pages/checkout.html',
                 kds: 'pages/kds.html',
                 report: 'pages/report.html',
+                online_order: 'pages/online_order.html',         // 【修改】新增：線上點餐頁面入口
+                inventory_audit: 'pages/inventory_audit.html',   // 【修改】新增：庫存盤點頁面入口
             }
         }
     }

@@ -1,5 +1,10 @@
 import { getAccessToken, logout } from './auth.js';
 import logger from './utils/logger.js';
+// 【修改】匯入統一錯誤處理工具，取代各處不一致的 .text()/.json() 解析
+import { handleApiError } from './utils/apiError.js';
+
+// 【修改】從 Vite 環境變數讀取 API 基底 URL，取代寫死的 localhost:8080
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // ==========================================
 // 🔐 認證相關 API
@@ -10,16 +15,14 @@ import logger from './utils/logger.js';
  * @param {object} credentials - { username, password, brandId }
  */
 export async function login(credentials) {
-    const response = await fetch("http://localhost:8080/api/v1/auth/login", {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
     });
 
     if (!response.ok) {
-        // 嘗試讀取錯誤訊息
-        const errorText = await response.text();
-        throw new Error(errorText || "登入失敗");
+        await handleApiError(response, "登入失敗");
     }
     return response.json();
 }
@@ -29,7 +32,7 @@ export async function login(credentials) {
  * @param {string} displayName
  */
 export async function guestLogin(displayName) {
-    const response = await fetch("http://localhost:8080/api/v1/auth/guest", {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/guest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName }),
@@ -81,7 +84,8 @@ async function fetchWithAuth(endpoint, options = {}) {
     }
 
     // 處理完整 URL (若 endpoint 不是以 http 開頭，補上 localhost)
-    const url = endpoint.startsWith("http") ? endpoint : `http://localhost:8080${endpoint}`;
+    // 【修改】使用環境變數取代寫死的 localhost:8080
+    const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
 
     try {
         const response = await fetch(url, { ...options, headers });
@@ -136,8 +140,7 @@ export async function processPayment(orderId, paymentData) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`付款失敗: ${errorBody}`);
+    await handleApiError(response, "付款失敗");
   }
   return response.json();
 }
@@ -155,8 +158,7 @@ export async function createOrder(orderData) {
     });
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`建立訂單失敗: ${errorBody}`);
+        await handleApiError(response, "建立訂單失敗");
     }
     return response.json();
 }
@@ -172,8 +174,7 @@ export async function createOnlineOrder(orderData) {
     });
 
     if (response.status !== 202) { // 預期回傳 202 Accepted
-        const errorBody = await response.text();
-        throw new Error(`線上訂單建立失敗: ${errorBody}`);
+        await handleApiError(response, "線上訂單建立失敗");
     }
     return response.json();
 }
@@ -190,8 +191,7 @@ export async function posCheckoutComplete(checkoutData) {
     });
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`結帳失敗: ${errorBody}`);
+        await handleApiError(response, "結帳失敗");
     }
     return response.json();
 }
@@ -206,8 +206,7 @@ export async function getOrderDetails(orderId) {
     });
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`取得訂單詳情失敗: ${errorBody}`);
+        await handleApiError(response, "取得訂單詳情失敗");
     }
     return response.json();
 }
@@ -228,8 +227,7 @@ export async function findMemberByPhone(phone) {
     }
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`查詢會員失敗: ${errorBody}`);
+        await handleApiError(response, "查詢會員失敗");
     }
     return response.json();
 }
@@ -246,8 +244,7 @@ export async function getOrdersByStatus(storeId, status) {
         { method: "GET" }
     );
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`取得 ${status} 訂單失敗: ${errorBody}`);
+        await handleApiError(response, `取得 ${status} 訂單失敗`);
     }
     return response.json();
 }
@@ -267,8 +264,7 @@ export async function updateOrderStatus(orderId, newStatus) {
         }
     );
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`更新訂單狀態為 ${newStatus} 失敗: ${errorBody}`);
+        await handleApiError(response, `更新訂單狀態為 ${newStatus} 失敗`);
     }
     return response.json();
 }
@@ -358,8 +354,7 @@ export async function getInventoryItems() {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || "無法取得庫存列表");
+        await handleApiError(response, "無法取得庫存列表");
     }
     return response.json();
 }
@@ -387,8 +382,7 @@ export async function submitShipment(data) {
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "進貨提交失敗");
+        await handleApiError(response, "進貨提交失敗");
     }
     return response.json();
 }
