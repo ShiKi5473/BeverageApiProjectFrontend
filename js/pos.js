@@ -17,9 +17,10 @@ import {
     getPosProducts,
     createOrder,
     getOrdersByStatus,
-    updateOrderStatus // 雖然 pos.js 主要用來顯示待取餐，但如果需要在這頁完成取餐也需要這個
+    updateOrderStatus,
+    getSseTicket // 取得一次性 SSE 連線票券（取代直接在 URL 中傳遞 JWT）
 } from "./api.js";
-import { getAccessToken, logout, getStoreId } from './auth.js';
+import { logout, getStoreId } from './auth.js';
 import { createProductCard } from "./components/ProductCard.js";
 import { createOptionsModalContent } from "./components/OptionsModal.js";
 import { createCartItem, updateCartTotal } from "./components/Cart.js";
@@ -296,30 +297,38 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /**
-     * 【修改 2】啟動 SSE 連線 (取代 WebSocket)
+     * 啟動 SSE 連線
+     * 先向後端取得一次性 ticket，再用 ticket 建立 EventSource。
+     * 避免 JWT 暴露在 URL query parameter 中（EventSource API 不支援自訂 Header）。
      */
-    function startSse() {
-        const token = getAccessToken();
-        if (!token) return;
+    async function startSse() {
+        try {
+            // 透過已認證的 API 取得一次性 SSE ticket（有效期 30 秒，僅限使用一次）
+            const ticket = await getSseTicket();
 
-        // 使用與 kds.js 相同的 SSE 端點
-        const eventSource = new EventSource(`/api/v1/kds/stream?token=${token}`);
+            // 用 ticket 建立 SSE 連線（後端驗證後會立即銷毀 ticket）
+            const eventSource = new EventSource(`/api/v1/kds/stream?ticket=${ticket}`);
 
-        eventSource.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                handlePosSseMessage(data.action, data.payload);
-            } catch (e) {
-                logger.error("POS SSE 訊息解析失敗:", e);
-            }
-        };
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handlePosSseMessage(data.action, data.payload);
+                } catch (e) {
+                    logger.error("POS SSE 訊息解析失敗:", e);
+                }
+            };
 
-        eventSource.onerror = (err) => {
-            logger.error("POS SSE 連線錯誤 (將自動重連):", err);
-            if (eventSource.readyState === EventSource.CLOSED) {
-                // Token 可能過期，可考慮導向登入或提示
-            }
-        };
+            // 連線錯誤：關閉當前連線並重新取得 ticket 再重連
+            // （不能依賴 EventSource 自動重連，因為舊 ticket 已被銷毀）
+            eventSource.onerror = (err) => {
+                logger.error("POS SSE 連線錯誤:", err);
+                eventSource.close();
+                setTimeout(() => startSse(), 5000);
+            };
+        } catch (error) {
+            logger.error("POS 取得 SSE ticket 失敗，5 秒後重試:", error);
+            setTimeout(() => startSse(), 5000);
+        }
     }
 
     /**

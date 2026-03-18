@@ -42,6 +42,25 @@ export async function guestLogin(displayName) {
 }
 
 
+/**
+ * 取得一次性 SSE 連線票券
+ * 用於建立 EventSource 連線（因為 EventSource API 不支援自訂 Header，
+ * 所以改用短期一次性 ticket 取代在 URL 中直接暴露 JWT）。
+ * 票券有效期 30 秒，僅能使用一次。
+ * @returns {Promise<string>} ticket 字串
+ */
+export async function getSseTicket() {
+    const response = await fetchWithAuth("/api/v1/auth/sse-ticket", {
+        method: "POST",
+    });
+
+    if (!response.ok) {
+        throw new Error("取得 SSE ticket 失敗");
+    }
+    const data = await response.json();
+    return data.ticket;
+}
+
 // ==========================================
 // 🛠️ 通用 Fetch 工具
 // ==========================================
