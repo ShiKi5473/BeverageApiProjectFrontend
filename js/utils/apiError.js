@@ -16,6 +16,14 @@ export async function handleApiError(response, defaultMessage = '請求失敗') 
             // 後端回傳 JSON 格式錯誤（例如 { message: "..." }）
             const errorBody = await response.json();
             errorMessage = errorBody.message || errorBody.error || JSON.stringify(errorBody);
+            // 【新增】後端 ErrorResponse 的 details（欄位驗證錯誤）一併附上，方便使用者知道哪個欄位有問題
+            const details = errorBody.details;
+            if (details && typeof details === 'object') {
+                const lines = Array.isArray(details)
+                    ? details.map(String)
+                    : Object.entries(details).map(([k, v]) => `${k}: ${v}`);
+                if (lines.length > 0) errorMessage += `（${lines.join('；')}）`;
+            }
         } else {
             // 後端回傳純文字錯誤
             const errorText = await response.text();

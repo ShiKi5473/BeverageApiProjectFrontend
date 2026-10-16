@@ -1,29 +1,47 @@
+import { calculateCartTotal, calculateLineTotal } from '../utils/pricing.js';
+
+/**
+ * 小工具：建立帶 class 與文字的元素（一律 textContent，避免 XSS）
+ */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
 /**
  * 建立一個購物車品項的 DOM 元素
- * @param {object} item -
+ * 【修改】XSS 防護：改用 DOM API + textContent，不再用 innerHTML 插入商品名稱／備註／選項
+ * 【修改】顯示規格名稱（variantName）
+ * @param {object} item - 購物車品項
  * @returns {HTMLElement}
  */
 export function createCartItem(item) {
-  const itemElement = document.createElement("div");
-  itemElement.className = "cart-item";
+  const itemElement = el("div", "cart-item");
 
-  const optionsText = item.selectedOptions
-    .map((opt) => opt.optionName)
-    .join(", ");
+  // 標題列：名稱 (規格) x數量 + 移除按鈕
+  const header = el("div", "cart-item-header");
+  const variantText = item.variantName ? ` (${item.variantName})` : "";
+  header.appendChild(el("span", "cart-item-name", `${item.name}${variantText} (x${item.quantity})`));
+  const removeBtn = el("button", "cart-item-remove-btn", "×");
+  // 購物車 ID 是前端本地產生的數字，不是後端 ID
+  removeBtn.dataset.cartId = String(item.id);
+  header.appendChild(removeBtn);
+  itemElement.appendChild(header);
 
-  const notesText = item.notes
-    ? `<div class="cart-item-notes">備註: ${item.notes}</div>`
-    : "";
+  // 選項
+  const optionsText = (item.selectedOptions ?? []).map((opt) => opt.optionName).join(", ");
+  itemElement.appendChild(el("div", "cart-item-options", optionsText));
 
-  itemElement.innerHTML = `
-    <div class="cart-item-header">
-      <span class="cart-item-name">${item.name} (x${item.quantity})</span>
-      <button class="cart-item-remove-btn" data-cart-id="${item.id}">×</button>
-    </div>
-    <div class="cart-item-options">${optionsText}</div>
-    ${notesText}
-    <div class="cart-item-price">NT$ ${item.unitPrice * item.quantity}</div>
-  `;
+  // 備註
+  if (item.notes) {
+    itemElement.appendChild(el("div", "cart-item-notes", `備註: ${item.notes}`));
+  }
+
+  itemElement.appendChild(
+    el("div", "cart-item-price", `NT$ ${calculateLineTotal(item.unitPrice, item.quantity)}`)
+  );
   return itemElement;
 }
 
@@ -33,9 +51,5 @@ export function createCartItem(item) {
  * @param {HTMLElement} totalElement -
  */
 export function updateCartTotal(cart, totalElement) {
-  const total = cart.reduce(
-    (sum, item) => sum + item.unitPrice * item.quantity,
-    0
-  );
-  totalElement.textContent = `NT$ ${total}`;
+  totalElement.textContent = `NT$ ${calculateCartTotal(cart)}`;
 }

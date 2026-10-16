@@ -1,58 +1,51 @@
 import { connectToWebSocket } from './ws-client.js';
 import { toastManager } from './components/Notification.js';
-import { getStoreId, isAuthenticated } from './auth.js';
+import { isAuthenticated } from './auth.js';
 import logger from './utils/logger.js';
 
+// 【新增】每個頁面只維持一條 STOMP 連線，避免重複呼叫 initAppNotifications 造成重複通知
+let activeClient = null;
+
 /**
- * 啟動全域通知監聽
+ * 啟動全域通知監聽（訂閱 /user/queue/orders 個人訂單通知）
+ * 【修改】不再需要 storeId：後端已移除 /topic/kds/store/{id} 廣播，只剩個人通知
  */
-export async function initAppNotifications() {
+export function initAppNotifications() {
     if (!isAuthenticated()) {
         logger.debug("使用者未登入，不啟動通知連線");
         return;
     }
-
-    const storeId = getStoreId();
-    if (!storeId) {
-        logger.warn("找不到 storeId，無法完整訂閱通知");
-        // 即使沒 storeId，或許還是可以連線受 user 特定通知 (如果是消費者)
-    }
+    if (activeClient) return;
 
     try {
-        await connectToWebSocket(
-            storeId || 0, 
-            handleGlobalMessage,
+        activeClient = connectToWebSocket(
+            handleOrderNotification,
             () => logger.info("全域即時通知連線成功"),
-            (err) => logger.error("全域通知連線失敗:", err)
+            (err) => logger.warn("全域通知連線異常:", err)
         );
     } catch (e) {
         logger.error("啟動全域通知失敗:", e);
     }
+
+    // 離開頁面時關閉連線
+    window.addEventListener('pagehide', () => {
+        if (activeClient) {
+            activeClient.deactivate();
+            activeClient = null;
+        }
+    });
 }
 
 /**
- * 處理來自 WebSocket 的所有訊息
- * @param {string} action - 動作類型
- * @param {object} payload - 數據
+ * 處理 /user/queue/orders 的通知
+ * @param {{orderNumber: string, status: string, message: string}} payload
  */
-function handleGlobalMessage(action, payload) {
-    if (action === 'USER_NOTIFICATION') {
-        const type = payload.status === 'READY_FOR_PICKUP' ? 'success' : 'info';
-        toastManager.show(
-            "訂單狀態更新", 
-            payload.message, 
-            type
-        );
-        
-        // Trigger global event for specific pages (like online_order.html tracker)
-        if (typeof window.dispatchOrderNotification === 'function') {
-            window.dispatchOrderNotification(payload);
-        }
-    } else {
-        // 可以在這裡處理其他類型的推播 (例如：系統維護公告)
-        logger.debug("收到未定義動作的 WS 訊息:", action, payload);
-    }
-}
+function handleOrderNotification(payload) {
+    const type = payload.status === 'READY_FOR_PICKUP' ? 'success' : 'info';
+    // Notification.js 以 textContent 輸出，伺服器訊息不會被當成 HTML 解析
+    toastManager.show("訂單狀態更新", payload.message, type);
 
-// 自動啟動 (如果是在網頁中直接載入此 module)
-// initAppNotifications();
+    // 【修改】改用 CustomEvent 通知特定頁面（例如 online_order 的進度追蹤），
+    // 取代原本掛在 window 上的全域函式 dispatchOrderNotification
+    document.dispatchEvent(new CustomEvent('order-status-changed', { detail: payload }));
+}

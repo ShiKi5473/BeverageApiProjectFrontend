@@ -5,6 +5,8 @@
 import { getSseTicket } from '../api.js';
 import logger from './logger.js';
 import { SSE_RECONNECT_DELAY_MS } from '../constants.js';
+// 【修改】使用 API_BASE_URL：正式環境 API 與前端不同網域時，相對路徑會連錯主機
+import { API_BASE_URL } from '../config.js';
 
 /**
  * 建立 SSE 連線（含 ticket 取得與自動重連）
@@ -22,15 +24,28 @@ import { SSE_RECONNECT_DELAY_MS } from '../constants.js';
  */
 export function createSseConnection(url, callbacks) {
     let closed = false;
+    // 【新增】記住目前的 EventSource 與重連計時器，close() 才能真正關閉連線
+    let activeSource = null;
+    let reconnectTimer = null;
+
+    function scheduleReconnect() {
+        if (closed) return;
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connect, SSE_RECONNECT_DELAY_MS);
+    }
 
     async function connect() {
         if (closed) return;
         try {
             // 取得一次性 SSE ticket（有效期 30 秒，僅限使用一次）
             const ticket = await getSseTicket();
+            // 取得 ticket 的期間可能已被呼叫 close()
+            if (closed) return;
 
             // 用 ticket 建立 SSE 連線（後端驗證後會立即銷毀 ticket）
-            const eventSource = new EventSource(`${url}?ticket=${ticket}`);
+            // 【修改】加上 API_BASE_URL 並對 ticket 做 URL 編碼
+            const eventSource = new EventSource(`${API_BASE_URL}${url}?ticket=${encodeURIComponent(ticket)}`);
+            activeSource = eventSource;
 
             eventSource.onopen = () => {
                 if (callbacks.onOpen) callbacks.onOpen();
@@ -49,24 +64,29 @@ export function createSseConnection(url, callbacks) {
             eventSource.onerror = (err) => {
                 logger.error('SSE 連線錯誤:', err);
                 eventSource.close();
+                if (activeSource === eventSource) activeSource = null;
                 if (callbacks.onError) callbacks.onError(err);
-                if (!closed) {
-                    setTimeout(connect, SSE_RECONNECT_DELAY_MS);
-                }
+                scheduleReconnect();
             };
         } catch (error) {
             // ticket 取得失敗，延遲後重試
             logger.error('取得 SSE ticket 失敗，稍後重試:', error);
             if (callbacks.onError) callbacks.onError(error);
-            if (!closed) {
-                setTimeout(connect, SSE_RECONNECT_DELAY_MS);
-            }
+            scheduleReconnect();
         }
     }
 
     connect();
 
     return {
-        close: () => { closed = true; }
+        // 【修改】除了停止重連，也關閉目前作用中的 EventSource（原本連線會一直開著）
+        close: () => {
+            closed = true;
+            clearTimeout(reconnectTimer);
+            if (activeSource) {
+                activeSource.close();
+                activeSource = null;
+            }
+        }
     };
 }

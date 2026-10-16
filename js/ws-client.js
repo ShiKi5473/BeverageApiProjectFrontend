@@ -1,95 +1,74 @@
+// 檔案：js/ws-client.js
+// 【重寫】STOMP 即時通知用戶端
+// 1. 以 @stomp/stompjs 取代已停止維護的 stompjs@2.3.3
+// 2. 後端 endpoint 使用 withSockJS()，因此用 webSocketFactory 包 SockJS
+// 3. reconnectDelay 自動重連 + 心跳；每次重連前重新讀取最新 token
+// 4. 關閉 debug：舊版預設會把含 Authorization 的 CONNECT frame 印到 console
+// 5. 只訂閱 /user/queue/orders（移除後端從不發送的 /topic/kds/store/{id}）
+// 6. 不再於此處 prompt 訪客登入（訪客登入由 online_order.js 負責，需要 brandId）
+
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import logger from './utils/logger.js';
-import Stomp from 'stompjs';
-import SockJS from 'sockjs-client'
-import { guestLogin } from './api.js';
-import {
-    isAuthenticated,
-    getAccessToken,
-    setAuthSession,
-    logout
-} from './auth.js';
+import { API_BASE_URL } from './config.js';
+import { getAccessToken, isAuthenticated } from './auth.js';
+
+/** 重連間隔（毫秒） */
+const RECONNECT_DELAY_MS = 5000;
+/** 心跳間隔（毫秒） */
+const HEARTBEAT_MS = 10000;
 
 /**
- * 連線到 WebSocket 服務 (支援自動訪客登入)
+ * 連線到 WebSocket (STOMP over SockJS) 並訂閱個人訂單通知
+ * @param {(notification: {orderNumber: string, status: string, message: string}) => void} onNotification - 收到 /user/queue/orders 通知
+ * @param {() => void} [onConnect] - 連線成功（含重連）
+ * @param {(error: unknown) => void} [onError] - 連線失敗
+ * @returns {Client|null} 可呼叫 deactivate() 關閉；未登入時回傳 null
  */
-export async function connectToWebSocket(storeId, onMessageCallback, onConnectCallback, onErrorCallback) {
-    // 1. 使用 auth.js 檢查是否已登入
+export function connectToWebSocket(onNotification, onConnect, onError) {
     if (!isAuthenticated()) {
-        const guestName = prompt("您目前未登入。請輸入暱稱以加入點餐：", "訪客");
-
-        if (!guestName) {
-            if (onErrorCallback) onErrorCallback("使用者取消訪客登入，無法連線");
-            return;
-        }
-
-        try {
-            const res = await guestLogin(guestName);
-            // 【修改】使用 setAuthSession 儲存 Token
-            setAuthSession(res, guestName);
-        } catch (e) {
-            logger.error("訪客登入失敗:", e);
-            if (onErrorCallback) onErrorCallback("訪客登入失敗，無法建立連線");
-            return;
-        }
+        if (onError) onError('尚未登入，無法建立即時通知連線');
+        return null;
     }
 
-    // 2. 取得 Token (使用 auth.js)
-    const token = getAccessToken();
+    const client = new Client({
+        // 後端 WebSocketConfig 使用 withSockJS()，必須走 SockJS
+        webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws-kds`),
+        reconnectDelay: RECONNECT_DELAY_MS,
+        heartbeatIncoming: HEARTBEAT_MS,
+        heartbeatOutgoing: HEARTBEAT_MS,
+        // 關閉 debug，避免 Authorization header 被印到 console
+        debug: () => {},
+        // 每次（重）連線前重新帶入最新的 token
+        beforeConnect: () => {
+            client.connectHeaders = { Authorization: `Bearer ${getAccessToken()}` };
+        },
+        onConnect: () => {
+            logger.info('WebSocket 已連線');
+            if (onConnect) onConnect();
 
-    // 3. 建立連線
-    // 【修改】使用環境變數取代寫死的 localhost:8080
-    const wsBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
-    const socket = new SockJS(`${wsBaseUrl}/ws-kds`);
-    const stompClient = Stomp.over(socket);
-    // stompClient.debug = null;
-
-    const headers = {
-        "Authorization": `Bearer ${token}`
-    };
-
-    stompClient.connect(headers,
-        // On Connect
-        (frame) => {
-            logger.info("WebSocket 已連線:", frame);
-            if (onConnectCallback) onConnectCallback();
-
-            const topic = `/topic/kds/store/${storeId}`;
-            stompClient.subscribe(topic, (message) => {
-                try {
-                    const kdsMessage = JSON.parse(message.body);
-                    if (onMessageCallback) {
-                        onMessageCallback(kdsMessage.action, kdsMessage.payload);
-                    }
-                } catch (e) {
-                    logger.error("WS 訊息解析失敗:", e);
-                }
-            });
-
-            stompClient.subscribe('/user/queue/orders', (message) => {
+            // 唯一的訂閱：個人訂單通知（後端 convertAndSendToUser -> /user/queue/orders）
+            client.subscribe('/user/queue/orders', (message) => {
                 try {
                     const notification = JSON.parse(message.body);
-                    logger.info("收到個人通知:", notification);
-                    if (onMessageCallback) {
-                        onMessageCallback('USER_NOTIFICATION', notification);
-                    }
+                    logger.info('收到個人通知:', notification);
+                    if (onNotification) onNotification(notification);
                 } catch (e) {
-                    logger.error("個人通知解析失敗:", e);
+                    logger.error('個人通知解析失敗:', e);
                 }
             });
         },
-        // On Error
-        (error) => {
-            logger.error("WS 連線失敗:", error);
-            const errorMsg = typeof error === 'string' ? error : error.headers?.message;
+        // STOMP 協定層錯誤（例如 CONNECT 被拒絕）；不印出 headers 以免洩漏敏感資訊
+        onStompError: (frame) => {
+            logger.error('STOMP 錯誤:', frame.headers?.message);
+            if (onError) onError(frame.headers?.message || 'STOMP 錯誤');
+        },
+        onWebSocketError: (event) => {
+            logger.warn('WebSocket 連線錯誤，將自動重連', event?.type);
+            if (onError) onError(event);
+        },
+    });
 
-            // 若 Token 失效，呼叫統一的 logout 或清除邏輯
-            if (errorMsg && (errorMsg.includes("401") || errorMsg.includes("403") || errorMsg.includes("Unauthorized"))) {
-                // 這裡可以選擇直接 logout() 導回首頁，或是僅清除 Token 讓使用者下次重試
-                // localStorage.removeItem("accessToken"); // 原本寫法
-                logout(); // 建議寫法：清除所有 Session 資訊
-            }
-
-            if (onErrorCallback) onErrorCallback(error);
-        }
-    );
+    client.activate();
+    return client;
 }
