@@ -3,6 +3,10 @@ import {createNavbar} from './components/Navbar.js';
 import { getInventoryItems, submitInventoryAudit, submitShipment } from './api.js';
 // 【修改】匯入具名常數，取代魔術數字
 import { INVENTORY_VARIANCE_THRESHOLD } from './constants.js';
+// 【新增】XSS 防護用的跳脫工具、統一登出、顯示名稱、本地日期格式化
+import { escapeHtml } from './utils/escapeHtml.js';
+import { logout, getDisplayName } from './auth.js';
+import { formatLocalDate } from './utils/format.js';
 
 // --- 全域變數 ---
 let currentInventoryItems = []; // 暫存庫存資料，避免重複 Fetch
@@ -62,7 +66,7 @@ async function loadInventoryData() {
     const listContainer = document.getElementById('audit-list');
 
     if (loadingIndicator) loadingIndicator.style.display = 'block';
-    if (listContainer) listContainer.innerHTML = '';
+    if (listContainer) listContainer.textContent = '';
 
     try {
         // 呼叫 API 取得最新庫存
@@ -91,7 +95,7 @@ async function loadInventoryData() {
  */
 function renderInventoryList() {
     const listContainer = document.getElementById('audit-list');
-    listContainer.innerHTML = ''; // 清空
+    listContainer.textContent = ''; // 清空
 
     currentInventoryItems.forEach(item => {
         let row;
@@ -115,14 +119,15 @@ function renderInventoryList() {
 function createViewRow(item) {
     const div = document.createElement('div');
     div.className = 'audit-item view-mode-item';
+    // 【修改】XSS 防護：品項名稱／單位／數量都來自後端資料，插入 innerHTML 前一律跳脫
     div.innerHTML = `
         <div class="item-info">
-            <span class="item-name">${item.name}</span>
-            <span class="item-unit">${item.unit}</span>
+            <span class="item-name">${escapeHtml(item.name)}</span>
+            <span class="item-unit">${escapeHtml(item.unit)}</span>
         </div>
         <div class="data-col right-align">
             <span class="col-label">目前數量</span>
-            <div class="system-stock large-text">${item.quantity}</div>
+            <div class="system-stock large-text">${escapeHtml(item.quantity)}</div>
         </div>
         <div class="data-col mobile-hide">
             </div>
@@ -137,25 +142,26 @@ function createViewRow(item) {
 function createAuditRow(item) {
     const div = document.createElement('div');
     div.className = 'audit-item';
-    div.dataset.id = item.id; // 綁定 ID 方便提交時抓取
+    div.dataset.id = String(item.id); // 綁定 ID 方便提交時抓取（ID 為字串，不轉 Number）
     div.dataset.systemQty = item.quantity;
 
+    // 【修改】XSS 防護：動態值一律 escapeHtml；
+    // 同時移除行內事件屬性 onfocus="this.select()"（CSP script-src 'self' 不允許行內事件處理器），改在下方用 addEventListener
     div.innerHTML = `
         <div class="item-info">
-            <span class="item-name">${item.name}</span>
-            <span class="item-unit">${item.unit}</span>
+            <span class="item-name">${escapeHtml(item.name)}</span>
+            <span class="item-unit">${escapeHtml(item.unit)}</span>
         </div>
         
         <div class="data-col">
             <span class="col-label">系統庫存</span>
-            <div class="system-stock">${item.quantity}</div>
+            <div class="system-stock">${escapeHtml(item.quantity)}</div>
         </div>
 
         <div class="data-col">
             <span class="col-label">實際盤點</span>
             <input type="number" class="audit-input" 
-                   value="${item.quantity}" 
-                   onfocus="this.select()"
+                   value="${escapeHtml(item.quantity)}" 
                    inputmode="decimal">
             
             <input type="date" class="audit-expiry-input" 
@@ -175,6 +181,9 @@ function createAuditRow(item) {
     const expiryInput = div.querySelector('.audit-expiry-input');
     const varianceDisplay = div.querySelector('.variance-display');
     const warningMsg = div.querySelector('.warning-msg');
+
+    // 取代原本的行內 onfocus：聚焦時全選，方便直接輸入新數量
+    input.addEventListener('focus', () => input.select());
 
     input.addEventListener('input', () => {
         const actual = parseFloat(input.value) || 0;
@@ -327,12 +336,9 @@ async function submitAudit() {
         };
 
         // 呼叫後端 API
-        const response = await submitInventoryAudit(requestPayload);
-        if (!response.ok) {
-            // 如果後端回傳錯誤狀態碼 (4xx, 5xx)，拋出錯誤
-            const errorText = await response.text();
-            throw new Error(errorText || '伺服器回應錯誤');
-        }
+        // 【修改】api.js 的 submitInventoryAudit 失敗時自己拋出錯誤、成功回傳解析後的 body（可能為 null），
+        // 不再回傳 Response；原本的 response.ok 檢查在 body 為 null 時會拋 TypeError，已移除
+        await submitInventoryAudit(requestPayload);
         alert('✅ 盤點完成！庫存已更新。');
         window.location.reload(); // 重新整理
 
@@ -366,7 +372,12 @@ async function openShipmentModal() {
         }
 
         // 重新填充
-        select.innerHTML = '<option value="">請選擇品項...</option>';
+        // 【修改】改用 DOM API 建立選項（textContent），不用 innerHTML
+        select.textContent = '';
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = '請選擇品項...';
+        select.appendChild(placeholderOption);
         currentInventoryItems.forEach(item => {
             const option = document.createElement('option');
             option.value = item.id;
@@ -385,12 +396,19 @@ async function handleShipmentSubmit(e) {
     const supplier = document.getElementById('shipment-supplier').value;
     const invoiceNo = document.getElementById('shipment-invoice').value;
     const itemId = document.getElementById('shipment-item').value;
-    const quantity = parseInt(document.getElementById('shipment-quantity').value);
-    const cost = parseFloat(document.getElementById('shipment-cost').value) || 0;
+    // 【修改】後端進貨數量是 BigDecimal，用 parseFloat 保留小數（原本 parseInt 會截斷小數）
+    const quantity = parseFloat(document.getElementById('shipment-quantity').value);
+    // 【修改】成本欄位（shipment-cost）目前後端 AddShipmentRequestDto 沒有對應欄位，先不讀取以免產生未使用變數
     const expiryDate = document.getElementById('shipment-expiry').value;
 
-    if (!itemId || quantity <= 0) {
+    // 【修改】輸入空白時 quantity 為 NaN，NaN <= 0 為 false 會被放行；改成「必須大於 0」才通過
+    if (!itemId || !(quantity > 0)) {
         alert("請選擇品項並輸入正確數量");
+        return;
+    }
+    // 【修改】有效期限為後端必填欄位（批次表 expiry_date NOT NULL），未填時直接提示，不送出請求
+    if (!expiryDate) {
+        alert("請輸入有效期限");
         return;
     }
 
@@ -403,7 +421,7 @@ async function handleShipmentSubmit(e) {
                 inventoryItemId: itemId,
                 quantity: quantity,
                 // cost: cost, // 注意：目前的後端 DTO 似乎沒有接收 cost 欄位，但可保留在前端
-                expiryDate: expiryDate ? expiryDate : null
+                expiryDate: expiryDate
             }
         ]
     };
@@ -437,26 +455,35 @@ async function handleShipmentSubmit(e) {
 function initNavbar() {
     const navbarRoot = document.getElementById('navbar-root');
     if (!navbarRoot) return;
+    // 【修改】確認後統一呼叫 auth.logout()（原本只清 token / brandId，漏清 storeId 與角色）
     const handleLogout = () => {
         if (confirm("確定要登出嗎？")) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('brandId');
-            window.location.href = 'login.html';
+            logout();
         }
     };
     const headerElement = createNavbar("庫存管理系統", handleLogout);
-    navbarRoot.innerHTML = '';
+    navbarRoot.textContent = '';
     navbarRoot.appendChild(headerElement);
 }
 
 function initStaffInfo() {
-    const today = new Date().toISOString().split('T')[0];
+    // 【修改】toISOString() 以 UTC 計算，台灣早上 8 點前會顯示成昨天；改用本地日期
+    const today = formatLocalDate(new Date());
     document.getElementById('audit-date').textContent = today;
+    // 【修改】優先顯示登入時記錄的名稱；沒有時才解析 JWT payload（JWT 是 base64url，需先轉成標準 base64，且要處理中文 UTF-8）
+    const staffNameEl = document.getElementById('staff-name');
+    const savedName = getDisplayName();
+    if (savedName) {
+        staffNameEl.textContent = savedName;
+        return;
+    }
     const token = localStorage.getItem('accessToken');
     if (token) {
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            document.getElementById('staff-name').textContent = payload.name || payload.sub || '店員';
+            const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+            const payload = JSON.parse(new TextDecoder().decode(bytes));
+            staffNameEl.textContent = payload.name || payload.sub || '店員';
         } catch (e) { /* ignore */
         }
     }

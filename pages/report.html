@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
+    <!-- 【新增】CSP：腳本只允許同源（Vite 已將 Material Web / echarts 打包）；連線只允許同源與 VITE_API_BASE_URL 的 API / WebSocket / SSE 來源（佔位字串由 vite.config.js 於建置時替換） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src __CSP_CONNECT_SRC__; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>營收報表中心</title>
 
@@ -72,4 +74,4 @@
 
 <script type="module" src="../js/report.js"></script>
 </body>
-</html>
+</html>

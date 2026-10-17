@@ -234,6 +234,15 @@ body {
     margin-bottom: 16px;
 }
 
+/* 【新增】購物車明細的促銷折扣列（後端試算結果） */
+.sheet-discount-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #e63946;
+    margin-bottom: 8px;
+}
+
 .submit-order-btn {
     width: 100%;
     --md-filled-button-container-color: #e63946;
@@ -327,3 +336,5 @@ body {
 
 .order-status-preparing { color: #f39c12 !important; }
 .order-status-ready { color: #2ecc71 !important; }
+/* 【新增】下單失敗／訂單取消的狀態顏色（orderStatus.js 的 order-status-failed） */
+.order-status-failed { color: #e74c3c !important; }

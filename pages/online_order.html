@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
+    <!-- 【新增】CSP：腳本只允許同源（Vite 已將 Material Web / echarts / stompjs / sockjs 打包）；連線只允許同源與 VITE_API_BASE_URL 的 API / WebSocket 來源（__CSP_CONNECT_SRC__ 由 vite.config.js 於建置時替換） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src __CSP_CONNECT_SRC__; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     <title>線上點餐 - Beverage POS</title>
 
@@ -98,6 +100,13 @@
             <!-- Cart items -->
         </div>
         <div class="sheet-footer">
+            <!-- 【新增】整單備註（選填），對應 POST /api/v1/online-orders 的 customerNote -->
+            <md-filled-text-field id="customer-note" label="整單備註 (選填)" maxlength="100" style="width: 100%; margin-bottom: 12px;"></md-filled-text-field>
+            <!-- 【新增】促銷折扣（POST /api/v1/orders/preview 試算結果），沒有折扣時隱藏 -->
+            <div class="sheet-discount-row" id="sheet-discount-row" style="display: none;">
+                <span>優惠折扣</span>
+                <span id="sheet-discount-amount">- NT$ 0</span>
+            </div>
             <div class="final-total">
                 <span>應付總額</span>
                 <span id="sheet-final-amount">NT$ 0</span>
@@ -125,14 +134,8 @@
 </div>
 
 <!-- Scripts -->
-<script type="importmap">
-  {
-    "imports": {
-      "stompjs": "https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js",
-      "sockjs-client": "https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"
-    }
-  }
-</script>
+<!-- 【修改】已移除指向 CDN 的 importmap（沒有 SRI 驗證，且實際會被 Vite 打包忽略）；
+     stompjs / sockjs-client / Material Web 都由 Vite 打包成同源腳本。 -->
 <script src="../js/online_order.js" type="module"></script>
 </body>
 </html>
