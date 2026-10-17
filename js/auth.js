@@ -33,7 +33,31 @@ export function setAuthSession(authResponse, displayName = "", brandId = "") {
     // 如果後端有回傳 storeId（字串或 null），也存起來
     if (authResponse.storeId) {
         localStorage.setItem(STORE_KEY, String(authResponse.storeId));
+    } else {
+        // 【新增】這次登入沒有綁定分店（例如品牌管理員、訪客）時，清掉上一個帳號殘留的 storeId，
+        // 否則 report 頁會誤把品牌管理員當成「鎖定分店」的店員
+        localStorage.removeItem(STORE_KEY);
     }
+}
+
+/**
+ * 【新增】只更新目前選擇的分店 ID（線上點餐頁選店用，不動 token）
+ * @param {string} storeId - 分店 ID（字串，不轉 Number）
+ */
+export function setStoreId(storeId) {
+    if (storeId === null || storeId === undefined || storeId === "") {
+        localStorage.removeItem(STORE_KEY);
+        return;
+    }
+    localStorage.setItem(STORE_KEY, String(storeId));
+}
+
+/**
+ * 【新增】取得登入時記錄的顯示名稱（員工帳號或訪客暱稱）
+ * @returns {string|null}
+ */
+export function getDisplayName() {
+    return localStorage.getItem(NAME_KEY);
 }
 
 /**
@@ -103,4 +127,4 @@ export function getStoreId() {
  */
 export function getBrandId() {
     return localStorage.getItem(BRAND_KEY);
-}
+}

@@ -5,10 +5,11 @@ import { logout } from '../auth.js';
 /**
  * 建立一個可複用的導覽列元件 (標準 HTML <header> 版本)
  * @param {string} title - 顯示在導覽列上的標題
- * @param {function} onLogout - 點擊登出按鈕時要執行的回呼函式
+ * @param {function} [onLogout] - 點擊登出按鈕時要執行的回呼函式；
+ *                              【修改】預設為 auth.js 的 logout（各頁統一登出邏輯：清除所有登入資料並導回登入頁）
  * @returns {HTMLElement} - <header> 元素
  */
-export function createNavbar(title, onLogout) {
+export function createNavbar(title, onLogout = logout) {
     // 1. 【修改】建立 <header> 容器
     const header = document.createElement("header");
     // 我們借用 kds.css 或 navbar.css 中的樣式
@@ -30,12 +31,13 @@ export function createNavbar(title, onLogout) {
     logoutButton.appendChild(icon);
 
     // 5. 綁定事件
+    // 【修改】包一層箭頭函式：不把 click Event 傳給 onLogout（與 pos.js holdOrder 同類問題）
     if (onLogout && typeof onLogout === "function") {
-        logoutButton.addEventListener("click", onLogout);
+        logoutButton.addEventListener("click", () => onLogout());
     }
 
     // 6. 附加到 <header>
     header.appendChild(logoutButton);
 
     return header;
-}
+}

@@ -5,6 +5,8 @@
  * @returns { {element: HTMLElement, getQuantity: () => number} }
  */
 export function createQuantitySelector(initialValue = 1) {
+  // 【修改】數量改存在變數中，不再從畫面文字 parseInt（專案規範禁止使用 parseInt，避免和 ID 轉換混用）
+  let quantity = initialValue;
   const quantitySelector = document.createElement("div");
   quantitySelector.className = "quantity-selector";
 
@@ -28,26 +30,24 @@ export function createQuantitySelector(initialValue = 1) {
   minusBtn.disabled = initialValue === 1;
 
   minusBtn.onclick = () => {
-    let qty = parseInt(display.textContent, 10);
-    if (qty > 1) {
-      qty--;
-      display.textContent = qty;
+    if (quantity > 1) {
+      quantity--;
+      display.textContent = String(quantity);
       plusBtn.disabled = false;
-      if (qty === 1) {
+      if (quantity === 1) {
         minusBtn.disabled = true;
       }
     }
   };
 
   plusBtn.onclick = () => {
-    let qty = parseInt(display.textContent, 10);
-    qty++;
-    display.textContent = qty;
+    quantity++;
+    display.textContent = String(quantity);
     minusBtn.disabled = false;
   };
 
   return {
     element: quantitySelector,
-    getQuantity: () => parseInt(display.textContent, 10),
+    getQuantity: () => quantity,
   };
 }
