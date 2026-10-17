@@ -13,27 +13,49 @@ import '@material/web/button/text-button.js';
 // 匯入 API
 import {
     posCheckoutComplete,
-    findMemberByPhone
+    findMemberByPhone,
+    previewOrder
 } from "./api.js";
 import { createNavbar } from "./components/Navbar.js";
 import { initAppNotifications } from './app-notifications.js';
-// 【修改】匯入具名常數，取代魔術數字
-import { POINTS_PER_CURRENCY_UNIT } from './constants.js';
+import logger from './utils/logger.js';
+// 【修改】統一登出、取得分店 ID
+import { logout, getStoreId } from './auth.js';
+// 【新增】DOM 建立工具（textContent，避免 XSS）、品項 DTO / 金額工具、冪等鍵、取餐號碼
+import { el } from './utils/dom.js';
+import { toOrderItemDto, calculateCartTotal, calculateLineTotal, roundMoney, toNumber } from './utils/pricing.js';
+import { createIdempotencyHolder } from './utils/idempotency.js';
+import { getPickupNumber } from './utils/orderNumber.js';
 
-const paymentMethodChips = document.getElementById("payment-method-chips");
+/** 現金計算機最多輸入的位數，避免輸入過長的數字 */
+const MAX_CASH_DIGITS = 9;
+/** 點數輸入停止輸入後，延遲多久才呼叫試算 API（毫秒），避免每按一個鍵就打一次後端 */
+const PREVIEW_DEBOUNCE_MS = 400;
 
 document.addEventListener("DOMContentLoaded", async () => {
     // 啟動全域通知監聽
     initAppNotifications();
 
+    const paymentMethodChips = document.getElementById("payment-method-chips");
+
     // --- 1. 狀態變數 ---
     let currentCartItems = [];
     let currentMember = null;
     let selectedPaymentMethod = null;
-    let originalTotalAmount = 0; // 訂單原始小計
-    let pointsDiscount = 0; // 點數折抵金額
-    let finalAmount = 0; // 最終應付金額
     let cashReceived = 0; // 實收現金
+
+    // 【修改】金額一律以後端 POST /orders/preview 的試算結果為準（取代前端自己算點數折抵 + 固定比率常數）。
+    // previewStatus: 'idle' 尚未試算 | 'loading' 試算中 | 'ready' 已有最新結果 | 'error' 試算失敗
+    let preview = null;
+    let previewStatus = "idle";
+    let previewSeq = 0;          // 流水號：只採用「最後一次請求」的結果，丟棄過期回應
+    let previewTimer = null;     // 點數輸入的 debounce 計時器
+    let previewedPoints = 0;     // 產生目前 preview 時使用的點數（結帳時送同一組，確保與畫面金額一致）
+    let previewedMemberId = null; // 產生目前 preview 時使用的會員 ID（字串）
+    let submitting = false;      // 結帳送出中，防止重複點擊
+
+    // 【新增】結帳冪等鍵：網路失敗重試時沿用同一個 key（內容不變），成功後重置
+    const checkoutIdempotency = createIdempotencyHolder();
 
     // --- 2. 取得 DOM 元素 ---
     const layoutEl = document.getElementById("checkout-layout");
@@ -44,9 +66,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const itemCountEl = document.getElementById("item-count");
     const itemsListEl = document.getElementById("order-items-list");
     const originalTotalEl = document.getElementById("original-total");
+    const promoRowEl = document.getElementById("promo-row");
+    const promoAmountEl = document.getElementById("promo-amount");
     const discountRowEl = document.getElementById("discount-row");
     const discountAmountEl = document.getElementById("discount-amount");
     const finalTotalEl = document.getElementById("final-total");
+    const previewStatusEl = document.getElementById("preview-status");
+    const previewRetryBtn = document.getElementById("preview-retry-btn");
     const holdAndReturnButton = document.getElementById("hold-and-return-button");
 
     // 中欄
@@ -72,15 +98,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     // --- 3. 初始化 ---
 
     // 注入 Navbar
-    const handleLogout = () => {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("brandId");
-        window.location.href = "login.html";
-    };
-    const navbar = createNavbar("結帳系統", handleLogout);
+    // 【修改】登出統一使用 auth.logout()（清除 token / 角色 / 品牌 / 分店後導回登入頁）
+    const navbar = createNavbar("結帳系統", logout);
     layoutEl.insertBefore(navbar, mainEl);
 
     // --- 4. 核心功能函式 ---
+
+    /**
+     * 目前顯示用的金額（有試算結果用試算結果；否則退回前端暫估，僅供畫面顯示，不能用來結帳）
+     */
+    function getAmounts() {
+        if (preview) {
+            return {
+                subtotal: toNumber(preview.totalAmount),
+                promotionDiscount: toNumber(preview.promotionDiscount),
+                pointsDiscount: toNumber(preview.pointsDiscount),
+                finalAmount: toNumber(preview.finalAmount),
+            };
+        }
+        const estimate = calculateCartTotal(currentCartItems);
+        return { subtotal: estimate, promotionDiscount: 0, pointsDiscount: 0, finalAmount: estimate };
+    }
 
     /**
      * 從 localStorage 載入購物車資料並渲染頁面
@@ -93,23 +131,23 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             const cartItems = JSON.parse(cartJson);
-            if (!cartItems || cartItems.length === 0) {
+            if (!Array.isArray(cartItems) || cartItems.length === 0) {
                 throw new Error("購物車是空的");
+            }
+            // 【新增】舊版暫存的購物車沒有 variantId（後端必填，送出會 400），這裡提早擋下
+            if (cartItems.some((item) => !item || !item.variantId || !item.productId)) {
+                throw new Error("購物車資料格式過舊，請重新加入商品");
             }
 
             currentCartItems = cartItems;
-
-            // 計算總金額
-            originalTotalAmount = currentCartItems.reduce((sum, item) => {
-                return sum + (item.unitPrice * item.quantity);
-            }, 0);
 
             // 填充左欄 (訂單明細)
             itemCountEl.textContent = currentCartItems.length;
             renderOrderItems(currentCartItems);
 
-            // 更新所有金額顯示
-            updateAllTotals();
+            // 先用前端暫估顯示，再向後端試算正式金額
+            render();
+            requestPreview();
 
             checkoutContent.style.display = "grid";
 
@@ -121,23 +159,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     /**
      * 渲染訂單品項列表 (左欄)
+     * 【修改】XSS 防護：改用 DOM API + textContent，商品名稱／選項／備註不再插入 innerHTML
      */
     function renderOrderItems(items) {
-        itemsListEl.innerHTML = ""; // 清空
+        itemsListEl.textContent = ""; // 清空
         if (!items || items.length === 0) {
-            itemsListEl.innerHTML = "<p>訂單中沒有品項</p>";
+            itemsListEl.appendChild(el("p", "", "訂單中沒有品項"));
             return;
         }
         items.forEach(item => {
-            const optionsStr = item.selectedOptions.map(opt => opt.optionName).join(", ");
-            const itemEl = document.createElement("div");
-            itemEl.className = "checkout-item";
-            itemEl.innerHTML = `
-        <div class="checkout-item-details">
-          <span class="checkout-item-name">${item.name} (x${item.quantity})</span> ${optionsStr ? `<span class="checkout-item-options">${optionsStr}</span>` : ''}
-        </div>
-        <span class="checkout-item-subtotal">NT$ ${item.unitPrice * item.quantity}</span> 
-      `;
+            const optionsStr = (item.selectedOptions ?? []).map(opt => opt.optionName).join(", ");
+            const variantText = item.variantName ? ` (${item.variantName})` : "";
+
+            const itemEl = el("div", "checkout-item");
+
+            const details = el("div", "checkout-item-details");
+            details.appendChild(el("span", "checkout-item-name", `${item.name}${variantText} (x${item.quantity})`));
+            if (optionsStr) {
+                details.appendChild(document.createTextNode(" "));
+                details.appendChild(el("span", "checkout-item-options", optionsStr));
+            }
+            if (item.notes) {
+                details.appendChild(document.createTextNode(" "));
+                details.appendChild(el("span", "checkout-item-options", `備註: ${item.notes}`));
+            }
+            itemEl.appendChild(details);
+
+            itemEl.appendChild(
+                el("span", "checkout-item-subtotal", `NT$ ${calculateLineTotal(item.unitPrice, item.quantity)}`)
+            );
             itemsListEl.appendChild(itemEl);
         });
     }
@@ -170,7 +220,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 memberDisplayEl.style.display = "none";
                 memberInfoTextEl.textContent = "查無此會員";
             }
-            updateAllTotals(); // 查詢後更新總額
+            // 【修改】會員改變 -> 立即重新試算（會員可能影響點數折抵）
+            schedulePreview(0);
         } catch (error) {
             alert(error.message);
             memberInfoTextEl.textContent = "查詢失敗";
@@ -181,33 +232,107 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     /**
-     * (核心) 更新所有金額顯示
+     * 【新增】讀取使用者輸入的點數：整數、不小於 0、不超過會員餘額；沒有會員時一律為 0
      */
-    function updateAllTotals() {
-        let pointsToUse = pointsToUseInput.valueAsNumber || 0;
+    function readPointsToUse() {
+        if (!currentMember) {
+            pointsErrorEl.textContent = "";
+            return 0;
+        }
 
-        // 檢查點數
-        if (currentMember && pointsToUse > currentMember.totalPoints) {
-            pointsToUse = currentMember.totalPoints;
-            pointsToUseInput.value = pointsToUse;
+        const raw = pointsToUseInput.valueAsNumber;
+        let points = Number.isFinite(raw) ? Math.floor(raw) : 0;
+        if (points < 0) points = 0;
+
+        const balance = Math.floor(toNumber(currentMember.totalPoints));
+        if (points > balance) {
+            points = balance;
+            pointsToUseInput.value = points;
             pointsErrorEl.textContent = "已達上限";
         } else {
             pointsErrorEl.textContent = "";
         }
+        return points;
+    }
 
-        // 規則：N 點折 1 元（比率由常數定義）
-        pointsDiscount = Math.floor(pointsToUse / POINTS_PER_CURRENCY_UNIT);
-        finalAmount = originalTotalAmount - pointsDiscount;
+    /**
+     * 【新增】排程一次金額試算。先把狀態標為 loading（結帳按鈕立刻停用，避免用舊金額結帳），
+     * 再依 delay 延遲呼叫後端；連續輸入時只會送出最後一次。
+     */
+    function schedulePreview(delay = PREVIEW_DEBOUNCE_MS) {
+        clearTimeout(previewTimer);
+        previewSeq++; // 讓尚未回來的舊請求失效
+        previewStatus = "loading";
+        render();
+        previewTimer = setTimeout(requestPreview, delay);
+    }
+
+    /**
+     * 【新增】呼叫 POST /api/v1/orders/preview，取得小計／促銷折扣／點數折抵／應付金額
+     */
+    async function requestPreview() {
+        clearTimeout(previewTimer);
+        const seq = ++previewSeq;
+        const pointsToUse = readPointsToUse();
+        const memberId = currentMember ? String(currentMember.userId) : null;
+
+        previewStatus = "loading";
+        previewStatusEl.textContent = "";
+        render();
+
+        const body = { items: currentCartItems.map(toOrderItemDto) };
+        const storeId = getStoreId();
+        if (storeId) body.storeId = storeId;
+        if (memberId) {
+            body.memberId = memberId;
+            body.pointsToUse = pointsToUse;
+        }
+
+        try {
+            const result = await previewOrder(body);
+            if (seq !== previewSeq) return; // 已有更新的請求，丟棄過期回應
+            preview = result;
+            previewedPoints = pointsToUse;
+            previewedMemberId = memberId;
+            previewStatus = "ready";
+            previewStatusEl.textContent = "";
+            // 折抵上限為訂單金額：實際扣的點數少於輸入時提示使用者
+            if (memberId && toNumber(result.pointsUsed) < pointsToUse) {
+                pointsErrorEl.textContent = `實際使用 ${toNumber(result.pointsUsed)} 點（折抵金額上限為訂單金額）`;
+            }
+        } catch (error) {
+            if (seq !== previewSeq) return;
+            logger.error("金額試算失敗:", error);
+            preview = null;
+            previewStatus = "error";
+            previewStatusEl.textContent = `金額試算失敗：${error.message}`;
+        }
+        render();
+    }
+
+    /**
+     * (核心) 依目前狀態更新所有金額顯示
+     * 【修改】不再自己用常數計算點數折抵；金額來源是後端試算結果
+     */
+    function render() {
+        const { subtotal, promotionDiscount, pointsDiscount, finalAmount } = getAmounts();
 
         // 更新左欄
-        originalTotalEl.textContent = `NT$ ${originalTotalAmount}`;
+        originalTotalEl.textContent = `NT$ ${subtotal}`;
         finalTotalEl.textContent = `NT$ ${finalAmount}`;
+        if (promotionDiscount > 0) {
+            promoAmountEl.textContent = `- NT$ ${promotionDiscount}`;
+            promoRowEl.style.display = "flex";
+        } else {
+            promoRowEl.style.display = "none";
+        }
         if (pointsDiscount > 0) {
             discountAmountEl.textContent = `- NT$ ${pointsDiscount}`;
             discountRowEl.style.display = "flex";
         } else {
             discountRowEl.style.display = "none";
         }
+        previewRetryBtn.style.display = previewStatus === "error" ? "inline-flex" : "none";
 
         // 更新右欄結帳按鈕
         confirmBtnAmountEl.textContent = `NT$ ${finalAmount}`;
@@ -220,8 +345,9 @@ document.addEventListener("DOMContentLoaded", async () => {
      * 更新現金計算機顯示 (右欄)
      */
     function updateCalculatorDisplay() {
+        const { finalAmount } = getAmounts();
         calcDisplayReceivedEl.textContent = `$${cashReceived}`;
-        const change = cashReceived - finalAmount;
+        const change = roundMoney(cashReceived - finalAmount);
 
         if (change >= 0) {
             calcDisplayChangeEl.textContent = `$${change}`;
@@ -246,16 +372,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const fastVal = button.dataset.fast;
 
         if (fastVal) {
-            cashReceived = Number(fastVal);
+            cashReceived = toNumber(fastVal);
         } else if (val === 'clear') {
             cashReceived = 0;
         } else if (val === 'exact') {
-            cashReceived = finalAmount;
+            cashReceived = getAmounts().finalAmount;
         } else {
             let currentStr = String(cashReceived);
             if (currentStr === '0') currentStr = '';
-            currentStr += val;
-            cashReceived = Number(currentStr);
+            // 超過位數上限就忽略這次輸入
+            if (currentStr.length + val.length <= MAX_CASH_DIGITS) {
+                currentStr += val;
+                cashReceived = toNumber(currentStr);
+            }
         }
 
         updateCalculatorDisplay();
@@ -265,6 +394,18 @@ document.addEventListener("DOMContentLoaded", async () => {
      * 更新主結帳按鈕的狀態
      */
     function updateConfirmButtonState() {
+        // 【新增】尚未取得最新試算金額時不可結帳（避免用過期金額收款）
+        if (previewStatus === "loading" || previewStatus === "idle") {
+            confirmBtnTextEl.textContent = "金額試算中...";
+            confirmPaymentButton.disabled = true;
+            return;
+        }
+        if (previewStatus === "error") {
+            confirmBtnTextEl.textContent = "金額試算失敗";
+            confirmPaymentButton.disabled = true;
+            return;
+        }
+
         if (!selectedPaymentMethod) {
             confirmBtnTextEl.textContent = "請選擇付款方式";
             confirmPaymentButton.disabled = true;
@@ -272,7 +413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         if (selectedPaymentMethod === "CASH") {
-            if (cashReceived < finalAmount) {
+            if (cashReceived < getAmounts().finalAmount) {
                 confirmBtnTextEl.textContent = "金額不足";
                 confirmPaymentButton.disabled = true;
             } else {
@@ -289,35 +430,34 @@ document.addEventListener("DOMContentLoaded", async () => {
      * 處理最終付款
      */
     async function handleConfirmPayment() {
-        if (confirmPaymentButton.disabled) return;
+        if (confirmPaymentButton.disabled || submitting) return;
 
+        submitting = true;
         confirmPaymentButton.disabled = true;
         confirmBtnTextEl.textContent = "付款處理中...";
 
-        const itemsDto = currentCartItems.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            notes: item.notes,
-            optionIds: item.selectedOptions.map(opt => opt.optionId)
-        }));
-
+        // 【修改】品項 DTO 帶 variantId（後端必填），ID 一律是字串
+        // 會員與點數使用「產生目前畫面金額的那一組」，確保送出內容與試算結果一致
         const checkoutData = {
-            items: itemsDto,
-            memberId: currentMember ? currentMember.userId : null,
-            pointsToUse: pointsToUseInput.valueAsNumber || 0,
+            items: currentCartItems.map(toOrderItemDto),
+            memberId: previewedMemberId,
+            pointsToUse: previewedMemberId ? previewedPoints : 0,
             paymentMethod: selectedPaymentMethod,
         };
 
         try {
-            const paidOrder = await posCheckoutComplete(checkoutData);
-            alert(
-                `付款成功！ 訂單 ${paidOrder.orderNumber} 狀態已更新為 ${paidOrder.status}`
-            );
+            // 【新增】Idempotency-Key：內容相同的重試（例如網路中斷後再按一次）沿用同一個 key，
+            // 後端會重放第一次的結果，不會重複扣款／扣點
+            const idempotencyKey = checkoutIdempotency.getKey(checkoutData);
+            const paidOrder = await posCheckoutComplete(checkoutData, idempotencyKey);
+            checkoutIdempotency.reset();
+            // 【修改】顯示取餐號碼（訂單號碼最後一段）
+            alert(`付款成功！ 取餐號碼 #${getPickupNumber(paidOrder.orderNumber)}`);
             localStorage.removeItem("cartForCheckout");
             window.location.href = "pos.html";
         } catch (error) {
             alert(`付款失敗: ${error.message}`);
-            confirmPaymentButton.disabled = false;
+            submitting = false;
             updateConfirmButtonState(); // 恢復按鈕文字
         }
     }
@@ -327,7 +467,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 中欄
     findMemberBtn.addEventListener("click", handleFindMember);
-    pointsToUseInput.addEventListener("input", updateAllTotals);
+    // 【修改】點數變動 -> debounce 後重新向後端試算
+    pointsToUseInput.addEventListener("input", () => schedulePreview());
+    previewRetryBtn.addEventListener("click", () => requestPreview());
 
     calculatorGrid.addEventListener("click", handleCalculatorClick);
     confirmPaymentButton.addEventListener("click", handleConfirmPayment);

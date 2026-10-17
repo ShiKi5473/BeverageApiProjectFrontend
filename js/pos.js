@@ -256,15 +256,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function handleRemoveFromCart(cartId) {
-        shoppingCart = shoppingCart.filter((item) => item.id !== cartId);
+        // 【修改】購物車本地 ID 改用字串比較（dataset 本來就是字串），不再做 Number 轉換
+        shoppingCart = shoppingCart.filter((item) => String(item.id) !== String(cartId));
         renderCart();
     }
 
     cartItemsContainer.addEventListener("click", (event) => {
         const removeButton = event.target.closest(".cart-item-remove-btn");
         if (removeButton) {
-            // 購物車 ID 是前端本地產生的數字，可以安全轉 Number
-            const cartId = Number(removeButton.dataset.cartId);
+            // 購物車 ID 是前端本地產生的識別碼，直接以字串傳遞（避免對任何 ID 使用 Number()）
+            const cartId = removeButton.dataset.cartId;
             handleRemoveFromCart(cartId);
         }
     });

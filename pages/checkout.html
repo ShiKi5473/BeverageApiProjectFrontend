@@ -2,6 +2,8 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
+    <!-- 【新增】CSP：腳本只允許同源（Vite 已將 Material Web / echarts 打包）；連線只允許同源與 VITE_API_BASE_URL 的 API / WebSocket 來源（__CSP_CONNECT_SRC__ 由 vite.config.js 於建置時替換） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src __CSP_CONNECT_SRC__; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>訂單結帳</title>
 
@@ -35,6 +37,11 @@
                     <span>小計:</span>
                     <span id="original-total">NT$ 0</span>
                 </div>
+                <!-- 【新增】促銷折扣（後端試算結果 promotionDiscount） -->
+                <div class="total-row discount" id="promo-row" style="display: none;">
+                    <span>促銷折扣:</span>
+                    <span id="promo-amount">- NT$ 0</span>
+                </div>
                 <div class="total-row discount" id="discount-row" style="display: none;">
                     <span>點數折抵:</span>
                     <span id="discount-amount">- NT$ 0</span>
@@ -43,6 +50,9 @@
                     <span>應付總額:</span>
                     <strong id="final-total">NT$ 0</strong>
                 </div>
+                <!-- 【新增】金額試算失敗時顯示錯誤與「重新試算」按鈕 -->
+                <p id="preview-status" class="error"></p>
+                <md-text-button id="preview-retry-btn" style="display: none;">重新試算</md-text-button>
             </div>
         </aside>
 
@@ -132,4 +142,4 @@
 
 <script src="../js/checkout.js" type="module"></script>
 </body>
-</html>
+</html>

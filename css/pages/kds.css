@@ -120,3 +120,36 @@ body {
     background-color: #ccc;
     cursor: not-allowed;
 }
+
+/* 【新增】各欄標題旁的訂單數量 */
+.column-count {
+    display: inline-block;
+    min-width: 1.6em;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background-color: #6c757d;
+    color: #fff;
+    font-size: 0.8em;
+    text-align: center;
+}
+
+/* 【新增】卡片標題的取餐號碼、整單備註 */
+.kds-card-number {
+    font-size: 1.6em;
+}
+.kds-order-note {
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    border-left: 4px solid #8b4513;
+    background-color: #fff8e1;
+    color: #8b4513;
+    font-size: 0.95em;
+}
+
+/* 【新增】待接單欄的「接單」按鈕（樣式與「製作完成」一致，使用綠色區分） */
+.kds-accept-btn {
+    width: 100%;
+    margin-top: 15px;
+    --md-filled-button-container-color: #28a745;
+}

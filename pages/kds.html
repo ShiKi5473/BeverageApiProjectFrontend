@@ -2,6 +2,9 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8" />
+    <!-- 【新增】CSP：腳本只允許同源（Vite 已將 Material Web / echarts 打包）；連線只允許同源與 VITE_API_BASE_URL 的 API / SSE 來源（__CSP_CONNECT_SRC__ 由 vite.config.js 於建置時替換） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; connect-src __CSP_CONNECT_SRC__; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KDS 廚房顯示系統</title>
 
     <link rel="stylesheet" href="../css/pages/kds.css" />
@@ -12,17 +15,25 @@
 <body>
 <header class="kds-header">
     <h1>KDS 廚房顯示</h1>
-    <md-chip id="connection-status" slot="action" label="尚未連線" class="status-disconnected"></md-chip>
+    <!-- 【修改】改用 md-assist-chip（kds.js 匯入的是 assist-chip 元件，原本的 md-chip 沒有被註冊所以不會顯示） -->
+    <md-assist-chip id="connection-status" label="尚未連線" class="status-disconnected"></md-assist-chip>
 </header>
 <div class="kds-main-layout">
+    <!-- 【新增】待接單欄：線上訂單（AWAITING_ACCEPTANCE）要由店員按「接單」後才進入製作中 -->
+    <div class="kds-column" id="awaiting-column">
+        <h2 class="column-title">待接單 (AWAITING_ACCEPTANCE) <span class="column-count" id="awaiting-count">0</span></h2>
+        <div class="kds-card-list" id="awaiting-list">
+        </div>
+    </div>
+
     <div class="kds-column" id="preparing-column">
-        <h2 class="column-title">製作中 (PREPARING)</h2>
+        <h2 class="column-title">製作中 (PREPARING) <span class="column-count" id="preparing-count">0</span></h2>
         <div class="kds-card-list" id="preparing-list">
         </div>
     </div>
 
     <div class="kds-column" id="pickup-column">
-        <h2 class="column-title">待取餐 (READY_FOR_PICKUP)</h2>
+        <h2 class="column-title">待取餐 (READY_FOR_PICKUP) <span class="column-count" id="pickup-count">0</span></h2>
         <div class="kds-card-list" id="pickup-list">
         </div>
     </div>
